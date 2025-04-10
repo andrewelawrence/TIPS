@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "TIPS: A TwIPS Tool",
+  "version": "0.1.0",
+  "description": "AI-powered interpretations, previews, and suggestions for text/images.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "dist/frontend/popup/index.html",
+    "default_title": "Open TIPS",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["dist/frontend/assets/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "dist/frontend/assets/background.js",
+    "type": "module"
+  }
+}
