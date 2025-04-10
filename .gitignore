@@ -1,0 +1,28 @@
+# Node modules and build artifacts
+node_modules/
+dist/
+build/
+
+# Operating system files
+.DS_Store
+
+# Environment files (do not include actual secrets)
+.env
+.env.local
+.env.*.local
+
+# Log files
+*.log
+
+# Coverage reports from tests
+coverage/
+
+# IDE and Editor settings
+.vscode/
+.idea/
+
+# AWS credentials
+.aws/credentials
+
+# Anthropic credentials
+.anthropic/credentials
