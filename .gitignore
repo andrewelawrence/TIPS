@@ -26,3 +26,4 @@ coverage/
 
 # Anthropic credentials
 .anthropic/credentials
+/infrastructure/.aws-sam
