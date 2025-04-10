@@ -9,8 +9,8 @@ TIPS is a Chromium browser extension that provides AI-powered interpretations, p
 
 TIPS builds off of the TwIPS messaging platform ([https://arxiv.org/pdf/2407.17760](https://arxiv.org/pdf/2407.17760)).
 
-## Design
-
+## NOTE
+This extension is in active development - do not expect it do work if loaded into your browser.
 
 ## Architecture
 [ Chrome Extension ]
@@ -60,6 +60,5 @@ TIPS builds off of the TwIPS messaging platform ([https://arxiv.org/pdf/2407.177
 ## Costs
 Anthropic API
 For image uploads: tokens = (width px * height px)/750
-
 
 <a target="_blank" href="https://icons8.com/icon/12244/idea">Tip</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>
