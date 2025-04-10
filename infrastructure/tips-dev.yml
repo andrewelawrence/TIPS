@@ -1,0 +1,106 @@
+# This is the CloudFormation template for the TIPS development environment.
+# It provisions the necessary resources for the TIPS Chromium extension backend.
+# It could be translated to the SAM template.
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  TIPS Development Environment Stack.
+  This stack provisions resources for the TIPS Chromium extension backend.
+
+Parameters:
+  LambdaFunctionName:
+    Type: String
+    Default: "tips-lambda-processrequest-dev"
+  S3BucketName:
+    Type: String
+    Default: "tips-s3-uploads-dev"
+  APIGatewayName:
+    Type: String
+    Default: "tips-api-gateway-dev"
+  AnthropicAPIKey:
+    Type: String
+    NoEcho: true
+
+Resources:
+  TIPSLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: "tips-lambda-executionrole-dev"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: "tips-lambda-policy-dev"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "arn:aws:logs:*:*:*"
+              - Effect: Allow
+                Action:
+                  - "secretsmanager:GetSecretValue"
+                Resource: "*"
+    
+  TIPSLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Handler: lambda.lambda_handler
+      Runtime: python3.13
+      CodeUri: ../src/backend/
+      Role: !GetAtt TIPSLambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          ANTHROPIC_API_KEY: !Ref AnthropicAPIKey
+      Architectures:
+        - x86_64
+      Events:
+        AnalyzeApi:
+          Type: HttpApi
+          Properties:
+            Path: /analyze
+            Method: post
+            ApiId: !Ref TIPSAPIGateway
+
+  TIPSAPIGateway:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Ref APIGatewayName
+      ProtocolType: HTTP
+
+  TIPSAPIGatewayStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref TIPSAPIGateway
+      AutoDeploy: true
+      StageName: dev
+
+  TIPSS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  TIPSAnthropicAPIKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Ref AnthropicAPIKey
+      Description: "Anthropic API key for TIPS development environment"
+      SecretString: !Sub '{"apiKey": "${AnthropicAPIKey}"}'
+
+Outputs:
+  APIGatewayURL:
+    Description: "URL of the TIPS API Gateway for dev"
+    Value: !Sub https://${TIPSAPIGateway}.execute-api.${AWS::Region}.amazonaws.com/dev/
