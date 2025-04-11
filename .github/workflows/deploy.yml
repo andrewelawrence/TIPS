@@ -25,35 +25,35 @@ jobs:
       - name: Run Tests
         run: npm test
 
-      - name: Deploy to AWS (Dev)
-        if: github.ref == 'refs/heads/dev'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-1
-          NODE_ENV: development
-        run: |
-          echo "Deploying Development stack using tips-dev.yaml..."
-          aws cloudformation deploy --template-file infrastructure/tips-dev.yaml --stack-name TIPS-Stack-Dev --capabilities CAPABILITY_NAMED_IAM
+      # - name: Deploy to AWS (Dev)
+      #   if: github.ref == 'refs/heads/dev'
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     AWS_REGION: us-east-1
+      #     NODE_ENV: development
+      #   run: |
+      #     echo "Deploying Development stack using tips-dev.yaml..."
+      #     aws cloudformation deploy --template-file infrastructure/tips-dev.yaml --stack-name TIPS-Stack-Dev --capabilities CAPABILITY_NAMED_IAM
 
-      - name: Deploy to AWS (Test)
-        if: github.ref == 'refs/heads/test'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-1
-          NODE_ENV: test
-        run: |
-          echo "Deploying Testing stack using tips-test.yaml..."
-          aws cloudformation deploy --template-file infrastructure/tips-test.yaml --stack-name TIPS-Stack-Test --capabilities CAPABILITY_NAMED_IAM
+      # - name: Deploy to AWS (Test)
+      #   if: github.ref == 'refs/heads/test'
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     AWS_REGION: us-east-1
+      #     NODE_ENV: test
+      #   run: |
+      #     echo "Deploying Testing stack using tips-test.yaml..."
+      #     aws cloudformation deploy --template-file infrastructure/tips-test.yaml --stack-name TIPS-Stack-Test --capabilities CAPABILITY_NAMED_IAM
 
-      - name: Deploy to AWS (Prod)
-        if: github.ref == 'refs/heads/prod'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-1
-          NODE_ENV: production
-        run: |
-          echo "Deploying Production stack using tips-prod.yaml..."
-          aws cloudformation deploy --template-file infrastructure/tips-prod.yaml --stack-name TIPS-Stack-Prod --capabilities CAPABILITY_NAMED_IAM
+      # - name: Deploy to AWS (Prod)
+      #   if: github.ref == 'refs/heads/prod'
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     AWS_REGION: us-east-1
+      #     NODE_ENV: production
+      #   run: |
+      #     echo "Deploying Production stack using tips-prod.yaml..."
+      #     aws cloudformation deploy --template-file infrastructure/tips-prod.yaml --stack-name TIPS-Stack-Prod --capabilities CAPABILITY_NAMED_IAM
