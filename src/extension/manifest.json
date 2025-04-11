@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TIPS",
-  "version": "0.1.0",
-  "description": "TIPS: AI inference powered by Anthropic",
+  "version": "0.3.0",
+  "description": "TIPS: A TwIPS Extension. Built for You.",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
