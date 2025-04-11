@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "TIPS",
+  "version": "0.3.2",
+  "description": "Text Interpretation, message Previewing, and Suggesting. Helping users navigate online communication.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "contextMenus"
+  ],
+  "background": {
+    "service_worker": "assets/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["assets/content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [".anthropic/INTERPRET.txt", ".anthropic/PREVIEW.txt", ".anthropic/SUGGEST.txt"],
+      "matches": ["<all_urls>"],
+      "extension_ids": []
+    }
+  ]
+} 
