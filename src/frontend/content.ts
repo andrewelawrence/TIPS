@@ -8,7 +8,7 @@ let currentSelection: string | null = null;
 let currentSelectionRange: Range | null = null;
 let isInteractingWithUI = false;
 let interactionTimeout: number | null = null;
-let tooltipElement: HTMLDivElement | null = null; // For feedback tooltip
+let tooltipElement: HTMLDivElement | null = null;
 
 document.addEventListener('mouseup', handleTextSelection);
 document.addEventListener('mousedown', handleMouseDown);
@@ -125,7 +125,8 @@ function createOrUpdateInteractionUI() {
     tipsIcon.style.display = 'block';
     tipsIcon.style.filter = ''; // Reset filter on new selection show
 
-    // --- Action Menu Creation/Update ---
+    // --- Action Menu Creation/Update (Commented Out) ---
+    /*
     if (!actionMenu) {
         actionMenu = document.createElement('div');
         actionMenu.style.position = 'absolute';
@@ -174,7 +175,7 @@ function createOrUpdateInteractionUI() {
             button.addEventListener('click', (event) => {
                 event.stopPropagation(); // Prevent triggering document listeners
                 markInteraction();
-                handleActionClick(action.type);
+                handleActionClick(action.type); // Keep original handler reference
             });
              button.addEventListener('mousedown', (e) => { // Prevent mousedown on button from hiding UI
                 e.stopPropagation();
@@ -191,7 +192,8 @@ function createOrUpdateInteractionUI() {
     actionMenu.style.left = `${iconX + (iconSize / 2) - (actionMenu.offsetWidth / 2)}px`; // Center horizontally below icon
     actionMenu.style.top = `${iconY + iconSize + menuOffsetY}px`;
     // Ensure display is managed by handleIconClick
-    // actionMenu.style.display = 'none'; // Initial state
+    actionMenu.style.display = 'none'; // Ensure it starts hidden
+    */
 
     // Hide tooltip if showing from previous interaction
     hideTooltip();
@@ -204,51 +206,22 @@ function hideInteractionUI() {
         // tipsIcon.style.display = 'none'; // Don't hide icon here anymore
         tipsIcon.style.filter = ''; // Remove any glow/filter
     }
-    if (actionMenu) {
-        actionMenu.style.display = 'none';
-    }
-    // hideTooltip(); // Tooltip hides itself
 }
 
-// Renamed original handler - now just toggles the menu
+// --- New Icon Click Handler (Triggers Action Directly) ---
 function handleIconClick(event: MouseEvent) {
-    event.stopPropagation();
-    markInteraction();
-    if (actionMenu && tipsIcon) {
-        const currentDisplay = actionMenu.style.display;
-        const shouldShow = currentDisplay === 'none' || currentDisplay === '';
-        actionMenu.style.display = shouldShow ? 'flex' : 'none';
+    event.stopPropagation(); // Keep this
+    markInteraction(); // Keep this
 
-        // Recalculate position when showing, in case of scroll/reflow
-        if (shouldShow) {
-             const iconRect = tipsIcon.getBoundingClientRect();
-             const scrollX = window.scrollX;
-             const scrollY = window.scrollY;
-             const iconSize = tipsIcon.offsetHeight;
-             const menuOffsetY = 5;
-
-            actionMenu.style.left = `${iconRect.left + scrollX + (iconRect.width / 2) - (actionMenu.offsetWidth / 2)}px`;
-            actionMenu.style.top = `${iconRect.bottom + scrollY + menuOffsetY}px`;
-        }
-    }
-}
-// New handler for actions triggered from the menu
-function handleActionClick(actionType: string) {
-    console.log(`Action clicked: ${actionType}`);
+    console.log(`Icon clicked, triggering interpretation...`);
 
     if (!currentSelection || !currentSelectionRange) {
-        console.warn("Action clicked but no text selected or range found.");
-        hideInteractionUI(); // Hide menu if selection invalid
+        console.warn("Icon clicked but no text selected or range found.");
+        hideInteractionUI(); // Hide icon if selection invalid
         return;
     }
 
-    // --- Hide Action Menu Immediately ---
-    if (actionMenu) {
-        actionMenu.style.display = 'none';
-    }
-    // --- Leave Icon Visible ---
-
-    // --- Context Collection (Improved) ---
+    // --- Context Collection (Copied from original handleActionClick) ---
     const pageUrl = window.location.href;
     let pageTitle = document.title;
     let surroundingText = { preceding: "", succeeding: "" };
@@ -256,12 +229,12 @@ function handleActionClick(actionType: string) {
 
     // --- Attempt with Readability.js ---
     try {
-        if (Readability) { 
+        if (Readability) {
             const documentClone = document.cloneNode(true) as Document;
             const reader = new Readability(documentClone, {
                  // debug: true,
                  nbTopCandidates: 10,
-                 charThreshold: 500 
+                 charThreshold: 500
             });
             const article = reader.parse();
 
@@ -319,29 +292,25 @@ function handleActionClick(actionType: string) {
         }
     }
 
-    if (actionType === "INTERPRET_TEXT") {
-        console.log("Sending INTERPRET_TEXT message to background...");
-        chrome.runtime.sendMessage({
-            type: actionType,
-            text: currentSelection,
-            context: {
-                url: pageUrl,
-                title: pageTitle,
-                precedingText: surroundingText.preceding,
-                succeedingText: surroundingText.succeeding
-            }
-        });
-    } else if (actionType === "PREVIEW_TEXT") {
-        console.log("Preview action - Not implemented yet.");
-        // Placeholder for future implementation
-    } else if (actionType === "SUGGEST_TEXT") {
-        console.log("Suggest action - Not implemented yet.");
-        // Placeholder for future implementation
-    }
+    // --- Send Message Directly (Copied from original handleActionClick INTERPRET_TEXT case) ---
+    console.log("Sending INTERPRET_TEXT message to background...");
+    chrome.runtime.sendMessage({
+        type: "INTERPRET_TEXT",
+        text: currentSelection,
+        context: {
+            url: pageUrl,
+            title: pageTitle,
+            precedingText: surroundingText.preceding,
+            succeedingText: surroundingText.succeeding
+        }
+    });
 
-    // --- REMOVED hideInteractionUI() call ---
+    // --- Reset selection state ---
     currentSelection = null;
     currentSelectionRange = null;
+
+    // --- Optionally hide the icon here ---
+    // hideInteractionUI(); // Or use hideTooltip() which also hides the icon after delay
 }
 
 // --- Tooltip Functions ---
@@ -406,8 +375,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message.type === "INTERPRETATION_READY") {
         if (iconRect) { // Check if we have a position
-            // --- Hide Action Menu if still visible ---
-            if (actionMenu) actionMenu.style.display = 'none';
+            // --- Hide Action Menu if still visible (Commented Out) ---
+            // if (actionMenu) actionMenu.style.display = 'none';
 
             if (tipsIcon) tipsIcon.style.filter = 'brightness(1.2) drop-shadow(0 0 3px gold)'; // Apply effect
             showTooltip("Interpretation ready! Click the 💡 icon in your toolbar.", iconRect);
@@ -416,8 +385,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
     } else if (message.type === "INTERPRETATION_ERROR") {
          if (iconRect) { // Check if we have a position
-             // --- Hide Action Menu if still visible ---
-            if (actionMenu) actionMenu.style.display = 'none';
+             // --- Hide Action Menu if still visible (Commented Out) ---
+            // if (actionMenu) actionMenu.style.display = 'none';
 
              if (tipsIcon) tipsIcon.style.filter = 'grayscale(100%)'; // Apply effect
              showTooltip(`Error: ${message.error || 'Unknown issue'}`, iconRect, true);

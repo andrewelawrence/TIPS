@@ -4,6 +4,7 @@
   interface InterpretationData {
     text: string;
     confidence: number;
+    tone: string;
   }
 
   interface StoredData {
@@ -27,8 +28,12 @@
       const result = await chrome.storage.local.get('lastInterpretation');
       if (result.lastInterpretation) {
         const storedData = result.lastInterpretation as StoredData;
-        // Validate the structure slightly
-        if (storedData.interpretation && typeof storedData.interpretation.text === 'string' && typeof storedData.interpretation.confidence === 'number') {
+        // Validate the structure slightly, including tone
+        if (storedData.interpretation &&
+            typeof storedData.interpretation.text === 'string' &&
+            typeof storedData.interpretation.confidence === 'number' &&
+            typeof storedData.interpretation.tone === 'string')
+        {
             interpretation = storedData.interpretation;
             originalSelection = storedData.originalSelection; // Keep original text if needed later
             console.log("Loaded interpretation:", interpretation);
@@ -61,13 +66,6 @@
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }
 
-  function handleAnalyzeTone() {
-      console.log("Analyze Tone clicked - sending message...");
-      // TODO: Implement sending message to background for tone analysis
-      // Need to retrieve originalSelection and context from storage again or pass it around
-      alert("Tone analysis not yet implemented.");
-  }
-
   function handleAnalyzeContext() {
       console.log("Analyze Context clicked - sending message...");
        // TODO: Implement sending message to background for context analysis
@@ -90,7 +88,12 @@
         {/if}
         <p class="interpretation-text">{interpretation.text}</p>
         <div class="confidence-section">
-            <span>Confidence:</span>
+            <!-- Display Tone first -->
+            <span class="tone-label">Tone:</span>
+            <span class="tone-value">{interpretation.tone}</span>
+
+            <!-- Display Confidence next -->
+            <span class="confidence-label">Confidence:</span>
             <span
                 class="confidence-value"
                 style="--confidence-color: {getConfidenceColor(interpretation.confidence)};"
@@ -100,7 +103,8 @@
             </span>
         </div>
         <div class="actions">
-            <button on:click={handleAnalyzeTone} title="Explain the tone of the selected text">Explain Tone</button>
+            <!-- Remove Explain Tone button -->
+            <!-- <button on:click={handleAnalyzeTone} title="Explain the tone of the selected text">Explain Tone</button> -->
             <button on:click={handleAnalyzeContext} title="Explain the meaning considering surrounding context">Explain Context</button>
             <!-- Add more actions later -->
         </div>
@@ -181,11 +185,25 @@
     /* border-top: 1px solid var(--border-color); */ /* Remove top border */
     /* padding-top: 0.75rem; */ /* Remove top padding */
     margin-top: auto; /* Push to bottom if flex allows */
+    gap: 0.75rem; /* Add gap between items */
+  }
+
+  .tone-label,
+  .confidence-label {
+    color: #6c757d; /* Use a slightly muted color for labels */
+  }
+
+  .tone-value {
+    font-weight: bold;
+    padding: 0.2em 0.5em;
+    border-radius: 4px;
+    background-color: #e9ecef; /* Match button background */
+    color: #495057; /* Match button text */
+    text-transform: capitalize; /* Capitalize the first letter */
   }
 
   .confidence-value {
     font-weight: bold;
-    margin-left: 0.5em;
     padding: 0.2em 0.5em;
     border-radius: 4px;
     color: white; /* Text color contrasts with background */
@@ -206,7 +224,7 @@
   button {
     background-color: #e9ecef; /* Lighter background */
     color: #495057; /* Darker text */
-    border: 1px solid #ced4da;
+    border: 1px solid #ced4da; /* Match tone background border */
     padding: 0.3rem 0.6rem;
     border-radius: 4px;
     cursor: pointer;

@@ -10,13 +10,15 @@ Pay attention to and incorporate these aspects in your explanation where relevan
 *   **Implied Meaning:** What is the author *really* trying to say, beyond the literal words? Consider the subtext.
 *   **Cultural References:** Explain references to memes, events, or other cultural touchstones if applicable.
 *   **Purpose:** What is the likely intent of the comment? (e.g., to inform, to joke, to complain, to agree).
+*   **Tone (Single Word):** Identify the dominant tone and provide a single descriptive word (e.g., Humorous, Sarcastic, Angry, Helpful, Formal, Casual).
 
 **If the meaning remains ambiguous even with context, or if multiple interpretations are plausible, briefly mention this uncertainty in your explanation.**
 
-Provide your response strictly as the following JSON structure, containing your interpretation and a confidence score:
+Provide your response strictly as the following JSON structure, containing your interpretation, a confidence score, and the identified tone:
 {
   "text": string, // Your concise explanation incorporating the analysis above. **If uncertain, state it briefly.**
   "confidence": float // A floating-point value between 0.00 and 1.00 indicating your confidence. **Base this score on text clarity, context richness, and the level of ambiguity.** High ambiguity, multiple plausible meanings, or very limited context should result in a *lower* confidence score (e.g., below 0.6). Do not simply put a random number here - think critically if you are confident in your analysis or not.
+  "tone": string // A single word describing the dominant tone (e.g., Humorous, Sarcastic, Angry, Helpful).
 }
 
 Example Scenario:
@@ -24,7 +26,8 @@ Input Context: Page title "Found this growing in my university shared bathroom! 
 Output JSON:
 {
   "text": "This is a play on words, combining 'moldy' with the subreddit name 'mildlyinfuriating'. The user is expressing humorous annoyance about finding mold in the shared bathroom, fitting the theme of the subreddit.",
-  "confidence": 0.92
+  "confidence": 0.92,
+  "tone": "Humorous"
 }
 
 Be concise but informative - respond in a single sentence, no more than ~30 words. Focus on the most important aspects of the text's meaning in context.

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TIPS",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Text Interpretation, message Previewing, and Suggesting. Helping users navigate online communication.",
   "permissions": [
     "activeTab",

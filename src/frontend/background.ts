@@ -81,11 +81,14 @@ chrome.runtime.onMessage.addListener(
         if (response.content && response.content.length > 0 && response.content[0].type === 'text') {
             const responseText = response.content[0].text;
             try {
-                const interpretationData = JSON.parse(responseText); // Expected: { text: string, confidence: float }
+                const interpretationData = JSON.parse(responseText); // Expected: { text: string, confidence: float, tone: string }
 
-                if (typeof interpretationData.text === 'string' && typeof interpretationData.confidence === 'number') {
+                // Validate the expected fields, including the new 'tone' field
+                if (typeof interpretationData.text === 'string' &&
+                    typeof interpretationData.confidence === 'number' &&
+                    typeof interpretationData.tone === 'string') {
                     const dataToStore = {
-                        interpretation: interpretationData,
+                        interpretation: interpretationData, // This now includes text, confidence, and tone
                         originalSelection: selectedText,
                         originalContext: context // { url, title, precedingText, succeedingText }
                     };
