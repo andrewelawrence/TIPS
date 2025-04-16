@@ -307,9 +307,14 @@ async function triggerInterpretation(targetInfo: TargetInfo, tabId: number): Pro
       try {
           await chrome.tabs.sendMessage(tabId, { type: "INTERPRETATION_READY" });
           console.log(`[triggerInterpretation] Sent INTERPRETATION_READY message to tab ${tabId}`);
-      } catch (sendError) {
+      } catch (sendError: any) {
           console.error(`[triggerInterpretation] Failed to send INTERPRETATION_READY message to tab ${tabId}:`, sendError);
-          // Error already logged, storage was successful, nothing more to do here.
+          const tabExists = await chrome.tabs.get(tabId).catch(() => null);
+          if (!tabExists) {
+              console.warn(`[triggerInterpretation] Tab ${tabId} no longer exists, cannot send INTERPRETATION_READY message.`);
+          } else {
+             console.warn(`[triggerInterpretation] Tab ${tabId} exists, but content script may not be responding.`);
+          }
       }
     }
      // We should not reach here if interpretationData is null due to earlier return statements.
