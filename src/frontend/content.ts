@@ -1,5 +1,3 @@
-import { Readability } from '@mozilla/readability';
-
 console.log("TIPS Content Script Loaded.");
 
 let tipsIcon: HTMLDivElement | null = null;
