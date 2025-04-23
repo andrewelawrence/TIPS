@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to TIPS!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 2rem auto;
+            background-color: #f8f9fa;
+            color: #212529;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            box-shadow: 0 3px 7px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #007bff;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        code {
+            background-color: #e9ecef;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .key-feature {
+            background-color: #ffffff;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 5px;
+            border-left: 4px solid #17a2b8; /* Info color */
+        }
+        .setup-note {
+            background-color: #fff3cd; /* Warning color */
+            padding: 1rem;
+            margin-top: 1.5rem;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+        }
+        a { color: #0056b3; }
+        a:hover { text-decoration: underline; }
+        .demo-gif {
+            width: 100%;
+            max-width: 700px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            margin: 1rem auto;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+            display: block;
+            object-fit: contain;
+            image-rendering: auto;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+        .feature-caption {
+            font-style: italic;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+        @media (max-width: 768px) {
+            .demo-gif {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>👋 Welcome to TIPS!</h1>
+
+    <p>Thank you for choosing TIPS! TIPS helps you understand the nuance, tone, and implied meaning in online text, images, or links using AI-powered analysis.</p>
+
+    <h2>What it Does</h2>
+    <p>TIPS uses AI to help interpret online content, making communication clearer. You can either interpret content directly or provide specific context from the page for a more accurate analysis.</p>
+
+    <h2>How to Use</h2>
+
+    <div class="key-feature">
+        <h3>1. Interpret Text</h3>
+        <p>Right-click on selected text, then choose <strong>"Interpret"</strong> from the context menu. Alternatively, click the small 💡 icon that appears next to selected text.</p>
+        <img src="assets/interpret_text.gif" alt="Interpreting text demo" class="demo-gif">
+        <p class="feature-caption">Interpreting text content with TIPS</p>
+    </div>
+
+    <div class="key-feature">
+        <h3>2. Interpret Images</h3>
+        <p>Right-click on an image and select <strong>"Interpret"</strong> from the context menu. TIPS will analyze the visual content for you.</p>
+        <img src="assets/interpret_image.gif" alt="Interpreting image demo" class="demo-gif">
+        <p class="feature-caption">Interpreting image content with TIPS</p>
+    </div>
+
+    <div class="key-feature">
+        <h3>3. Adding Context</h3>
+        <p>Sometimes, the AI needs more background information. Right-click on relevant text snippets, images, or links on the page and choose <strong>"Add to Context"</strong>. These items will be included with your <strong>next</strong> "Interpret" request on that same tab.</p>
+        <img src="assets/interpret_with_context.gif" alt="Using context for interpretation demo" class="demo-gif">
+        <p class="feature-caption">Adding context to improve interpretation accuracy</p>
+        <p>You can clear the context at any time by right-clicking on the TIPS icon in the toolbar and selecting <strong>"Clear Context"</strong>. Context is also automatically cleared when tabs are closed.</p>
+    </div>
+
+    <hr>
+    <p>Enjoy using TIPS! We hope it helps make online communication clearer.</p>
+    <p>For more information, visit our <a href="https://github.com/andrewelawrence/TIPS" target="_blank">GitHub repository</a>.</p>
+
+</body>
+</html> 

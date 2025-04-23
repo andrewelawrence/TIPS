@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "TIPS",
+  "version": "0.6.1",
+  "description": "Context-informed interpretations. Helping users navigate online communication.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "debugger",
+    "scripting",
+    "storage",  
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "assets/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["assets/content.js"],
+      "run_at": "document_idle",
+      "type": "module"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "TIPS"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["INTERPRET.txt", "welcome.html", "assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
