@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy } from "svelte";
 
   interface TargetInfo {
-    type: 'selection' | 'image' | 'link' | 'page';
+    type: "selection" | "image" | "link" | "page";
     selectionText?: string;
     srcUrl?: string;
     pageUrl?: string;
@@ -17,21 +17,20 @@
 
   interface StoredData {
     interpretation: InterpretationData;
-    originalTarget: TargetInfo; 
+    originalTarget: TargetInfo;
   }
 
   let isFirstVisit = true;
   let isLoading = true;
   let interpretationData: InterpretationData | null = null;
   let originalTarget: TargetInfo | null = null;
-  let errorLoading: string | null = null; 
-  let imageLoadError = false; 
-  let showContextSummary = false; 
+  let errorLoading: string | null = null;
+  let imageLoadError = false;
+  let showContextSummary = false;
   let isMounted = false;
 
-  /* Helper to get confidence class based on score */
   function getConfidenceClass(score: number): string {
-    const level = Math.floor(score * 10); 
+    const level = Math.floor(score * 10);
     const adjustedLevel = Math.min(level, 9);
     return `confidence-${adjustedLevel}`;
   }
@@ -42,49 +41,54 @@
   }
 
   function handleAnalyzeContext() {
-      console.log("[Popup] Analyze Context button clicked.");
-      showContextSummary = !showContextSummary; 
+    console.log("[Popup] Analyze Context button clicked.");
+    showContextSummary = !showContextSummary;
   }
 
-  // Function to load interpretation data from storage
   async function loadInterpretationData() {
     if (!isMounted) {
-      console.log("[Popup] loadInterpretationData called but component not mounted. Aborting.");
+      console.log(
+        "[Popup] loadInterpretationData called but component not mounted. Aborting."
+      );
       return;
     }
     console.log("[Popup] Attempting to load interpretation data...");
-    // Reset state variables before loading
     isLoading = true;
     errorLoading = null;
     imageLoadError = false;
     showContextSummary = false;
 
     try {
-      const result = await chrome.storage.local.get('lastInterpretation');
+      const result = await chrome.storage.local.get("lastInterpretation");
       console.log("[Popup] Raw data from storage:", result);
 
       if (result.lastInterpretation) {
         const storedData = result.lastInterpretation as StoredData;
         console.log("[Popup] Parsed storedData:", storedData);
 
-        // More robust validation
         if (
           storedData &&
           storedData.interpretation &&
-          typeof storedData.interpretation.interpretation === 'string' &&
-          typeof storedData.interpretation.confidence === 'number' &&
-          typeof storedData.interpretation.tone === 'string' &&
+          typeof storedData.interpretation.interpretation === "string" &&
+          typeof storedData.interpretation.confidence === "number" &&
+          typeof storedData.interpretation.tone === "string" &&
           storedData.originalTarget &&
-          typeof storedData.originalTarget.type === 'string' &&
-          typeof storedData.interpretation.contextSummary === 'string'
+          typeof storedData.originalTarget.type === "string" &&
+          typeof storedData.interpretation.contextSummary === "string"
         ) {
           interpretationData = storedData.interpretation;
           originalTarget = storedData.originalTarget;
-          console.log("[Popup] Successfully loaded interpretation:", interpretationData);
+          console.log(
+            "[Popup] Successfully loaded interpretation:",
+            interpretationData
+          );
           console.log("[Popup] Original target:", originalTarget);
           errorLoading = null;
         } else {
-          console.warn("[Popup] Stored data structure is invalid or incomplete:", storedData);
+          console.warn(
+            "[Popup] Stored data structure is invalid or incomplete:",
+            storedData
+          );
           errorLoading = "Data format invalid.";
           interpretationData = null;
           originalTarget = null;
@@ -97,63 +101,51 @@
       }
     } catch (e: any) {
       console.error("[Popup] Error loading interpretation from storage:", e);
-      errorLoading = `Storage access failed: ${e.message || 'Unknown error'}`;
+      errorLoading = `Storage access failed: ${e.message || "Unknown error"}`;
       interpretationData = null;
       originalTarget = null;
     } finally {
-       if (isMounted) {
-         isLoading = false;
-       }
-      console.log("[Popup] Data loading finished. isLoading:", isLoading, "errorLoading:", errorLoading, "HasData:", !!interpretationData);
+      if (isMounted) {
+        isLoading = false;
+      }
+      console.log(
+        "[Popup] Data loading finished. isLoading:",
+        isLoading,
+        "errorLoading:",
+        errorLoading,
+        "HasData:",
+        !!interpretationData
+      );
     }
   }
 
-  // Define listener handlers
-  const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, namespace: string) => {
-    if (!isMounted) {
-      console.log("[Popup] handleStorageChange called but component not mounted.");
-      return;
-    }
-    console.log("[Popup] Storage change detected:", namespace, changes);
-    if (namespace === 'local' && changes.lastInterpretation) {
-      console.log("[Popup] lastInterpretation changed in storage, reloading data");
-      loadInterpretationData();
-    }
-  };
-
-  // Add function to check if first visit
   async function checkFirstVisit() {
     try {
-      const result = await chrome.storage.local.get('hasVisitedBefore');
+      const result = await chrome.storage.local.get("hasVisitedBefore");
       isFirstVisit = !result.hasVisitedBefore;
-      
+
       if (isFirstVisit) {
         chrome.storage.local.set({ hasVisitedBefore: true });
       }
     } catch (e) {
       console.error("[Popup] Error checking first visit status:", e);
-      isFirstVisit = false; 
+      isFirstVisit = false;
     }
   }
 
   onMount(() => {
-    console.log("[Popup] Component mounted. Adding storage listener.");
+    console.log("[Popup] Component mounted.");
     isMounted = true;
-    
-    // Check if first visit before loading data
+
     checkFirstVisit().then(() => {
-      // Load interpretation data after checking visit status
       loadInterpretationData();
     });
   });
 
   onDestroy(() => {
-    console.log("[Popup] Component destroying. Removing storage listener.");
+    console.log("[Popup] Component destroying.");
     isMounted = false;
-    // Remove ONLY storage listener
-    // chrome.storage.onChanged.removeListener(handleStorageChange);
   });
-
 </script>
 
 <main>
@@ -161,137 +153,169 @@
     <p class="loading-message">Loading interpretation...</p>
   {:else if errorLoading}
     <div class="error-container">
-        <p class="error">⚠️ Error: {errorLoading}</p>
-        <p class="error-suggestion">Please try again.</p>
+      <p class="error">⚠️ Error: {errorLoading}</p>
+      <p class="error-suggestion">Please try again.</p>
     </div>
   {:else if interpretationData && originalTarget}
     <div class="result-card">
-        <!-- Display Original Target -->
-        <div class="original-target">
-            {#if originalTarget.type === 'selection' && originalTarget.selectionText}
-                <div class="original-text">
-                    "{originalTarget.selectionText}"
-                </div>
-            {:else if originalTarget.type === 'image' && originalTarget.srcUrl}
-                <div class="original-image">
-                    {#if imageLoadError}
-                        <p class="image-error">🖼️ Could not load image.</p>
-                    {:else}
-                        <img 
-                            src={originalTarget.srcUrl} 
-                            alt="Original content interpreted" 
-                            title="Original Image" 
-                            loading="lazy" 
-                            on:error={handleImageError} 
-                        />
-                    {/if}
-                </div>
-            {:else if originalTarget.type === 'link' && originalTarget.srcUrl}
-                <div class="original-link">
-                    🔗 <a href={originalTarget.srcUrl} target="_blank" title="Original Link (opens in new tab)">{originalTarget.srcUrl}</a>
-                </div>
-             {:else if originalTarget.type === 'page' && originalTarget.pageUrl}
-                <div class="original-page">
-                    📄 Page: <a href={originalTarget.pageUrl} target="_blank" title="Interpreted Page (opens in new tab)">{originalTarget.pageUrl}</a>
-                </div>
+      <div class="original-target">
+        {#if originalTarget.type === "selection" && originalTarget.selectionText}
+          <div class="original-text">
+            "{originalTarget.selectionText}"
+          </div>
+        {:else if originalTarget.type === "image" && originalTarget.srcUrl}
+          <div class="original-image">
+            {#if imageLoadError}
+              <p class="image-error">🖼️ Could not load image.</p>
             {:else}
-                 <p class="fallback-target"><em>Interpreted item type: {originalTarget.type} (No preview available)</em></p>
+              <img
+                src={originalTarget.srcUrl}
+                alt="Original content interpreted"
+                title="Original Image"
+                loading="lazy"
+                on:error={handleImageError}
+              />
             {/if}
-        </div>
-
-        <!-- Display Interpretation -->
-        <p class="interpretation-text">{interpretationData.interpretation}</p>
-
-        <!-- Display Tone, Confidence, and Context Explanation -->
-        <div class="details-section">
-            <div class="detail-item tone-item">
-                <span class="detail-label">Tone:</span>
-                <span
-                    class="detail-value tone-value tone-{interpretationData.tone.toLowerCase().replace(/\s+/g, '-')}"
-                >
-                    {interpretationData.tone}
-                </span>
-            </div>
-            <div class="detail-item confidence-item">
-                 <span class="detail-label">Confidence:</span>
-                <span
-                    class="detail-value confidence-value {getConfidenceClass(interpretationData.confidence)}"
-                    title="Confidence: {(interpretationData.confidence * 100).toFixed(0)}%"
-                >
-                    {(interpretationData.confidence * 100).toFixed(0)}%
-                </span>
-            </div>
-            
-            <!-- Wrapper for the button to control its layout within flex container -->
-            <div class="button-wrapper">
-                <button on:click={handleAnalyzeContext} title="Show/Hide how context influenced the interpretation">
-                    {showContextSummary ? 'Hide Context' : 'Explain Context'}
-                </button>
-            </div>
-        </div>
-
-        <!-- Conditionally Display Context Summary -->
-        {#if showContextSummary && interpretationData?.contextSummary}
-        <div class="context-summary">
-            <p><strong>Context Explanation:</strong> {interpretationData.contextSummary}</p>
-        </div>
+          </div>
+        {:else if originalTarget.type === "link" && originalTarget.srcUrl}
+          <div class="original-link">
+            🔗 <a
+              href={originalTarget.srcUrl}
+              target="_blank"
+              title="Original Link (opens in new tab)"
+              >{originalTarget.srcUrl}</a
+            >
+          </div>
+        {:else if originalTarget.type === "page" && originalTarget.pageUrl}
+          <div class="original-page">
+            📄 Page: <a
+              href={originalTarget.pageUrl}
+              target="_blank"
+              title="Interpreted Page (opens in new tab)"
+              >{originalTarget.pageUrl}</a
+            >
+          </div>
+        {:else}
+          <p class="fallback-target">
+            <em
+              >Interpreted item type: {originalTarget.type} (No preview available)</em
+            >
+          </p>
         {/if}
+      </div>
+
+      <p class="interpretation-text">{interpretationData.interpretation}</p>
+
+      <div class="details-section">
+        <div class="detail-item tone-item">
+          <span class="detail-label">Tone:</span>
+          <span
+            class="detail-value tone-value tone-{interpretationData.tone
+              .toLowerCase()
+              .replace(/\s+/g, '-')}"
+          >
+            {interpretationData.tone}
+          </span>
+        </div>
+        <div class="detail-item confidence-item">
+          <span class="detail-label">Confidence:</span>
+          <span
+            class="detail-value confidence-value {getConfidenceClass(
+              interpretationData.confidence
+            )}"
+            title="Confidence: {(interpretationData.confidence * 100).toFixed(
+              0
+            )}%"
+          >
+            {(interpretationData.confidence * 100).toFixed(0)}%
+          </span>
+        </div>
+
+        <div class="button-wrapper">
+          <button
+            on:click={handleAnalyzeContext}
+            title="Show/Hide how context influenced the interpretation"
+          >
+            {showContextSummary ? "Hide Context" : "Explain Context"}
+          </button>
+        </div>
+      </div>
+
+      {#if showContextSummary && interpretationData?.contextSummary}
+        <div class="context-summary">
+          <p>
+            <strong>Context Explanation:</strong>
+            {interpretationData.contextSummary}
+          </p>
+        </div>
+      {/if}
     </div>
   {:else if isFirstVisit}
     <div class="welcome">
       <h2>Welcome to TIPS!</h2>
-      <p class="welcome-start">Interpret something to get started!<br>💡</p>
+      <p class="welcome-start">Interpret something to get started!<br />💡</p>
     </div>
   {:else}
-    <!-- Default message when no interpretation is loaded and no error -->
     <div class="no-data">
-        <p>TIPS</p>
-        <p>Interpret text/images!</p>
-        <p><small>Right-click or select text & click 💡. Check the extension icon (top-right) for status (⏳✅❗️).</small></p>
+      <p>TIPS</p>
+      <p>Interpret text/images!</p>
+      <p>
+        <small
+          >Right-click or select text & click 💡. Check the extension icon
+          (top-right) for status (⏳✅❗️).</small
+        >
+      </p>
     </div>
   {/if}
 </main>
 
 <style>
-  /* Global styles for the popup window itself (not content inside) */
-  :global(html), :global(body) {
-      margin: 0;
-      padding: 0;
-      background-color: transparent; 
+  :global(html),
+  :global(body) {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
   }
 
-  /* CSS Variables for consistent theming */
+  :global(body) {
+    transition: background-color 0.3s ease;
+  }
+
   :root {
-    --primary-color: #007bff; /* buttons, links, etc. */
-    --background-color: #f8f9faee; /* Overall background of the popup content */
-    --text-color: #212529; /* Default text color */
-    --card-background: #f8f9faee; /* Background for the main result card */
-    --border-color: #dee2e6; /* Borders for elements */
-    --shadow-color: rgba(0, 0, 0, 0.1); /* Subtle shadows for depth */
-    --error-color: #dc3545; /* Text color for error messages */
-    --error-background: #f8d7da; /* Background color for error containers */
-    --muted-text-color: #6c757d; /* Less prominent text (e.g., labels, hints) */
-    --light-background: #f1f3f5; /* Background for quoted text or image containers */
-    --link-color: #0056b3; /* Link color */
+    --primary-color: #007bff;
+    --text-color: #212529;
+    --main-background: linear-gradient(135deg, rgba(248, 249, 250, 0.85), rgba(233, 236, 239, 0.9));
+    --card-background: rgba(255, 255, 255, 0.95);
+    --border-color: rgba(222, 226, 230, 0.5);
+    --shadow-color: rgba(0, 0, 0, 0.08);
+    --muted-text-color: #6c757d;
+    --light-background: rgba(241, 243, 245, 0.9);
+    --link-color: #0056b3;
+    --error-background: #f8d7da;
+    --error-color: #721c24;
 
-    /* Dynamic Colors based on Confidence Score */
-    /* Uses a 10-step gradient from red (low confidence) to green (high confidence) */
-    --confidence-0-bg: #b71c1c;
-    --confidence-1-bg: #c62828;
-    --confidence-2-bg: #d32f2f;
-    --confidence-3-bg: #e53935;
-    --confidence-4-bg: #f44336;
-    --confidence-5-bg: #fb8c00;
-    --confidence-6-bg: #ff8f00;
-    --confidence-7-bg: #ffa000;
-    --confidence-8-bg: #4caf50;
-    --confidence-9-bg: #2e7d32;
+    /* Other variables */
+    --border-radius-sm: 6px;
+    --border-radius-md: 10px;
+    --border-radius-lg: 14px;
+    --transition-fast: 0.2s ease;
+    --transition-normal: 0.3s ease;
+    --box-shadow: 0 2px 10px var(--shadow-color);
+
+    /* Confidence Colors */
+    --confidence-0-bg: #dc3545;
+    --confidence-1-bg: #e54848;
+    --confidence-2-bg: #ec5a50;
+    --confidence-3-bg: #f26c58;
+    --confidence-4-bg: #f77e60;
+    --confidence-5-bg: #ff8c42;
+    --confidence-6-bg: #ffa500;
+    --confidence-7-bg: #ffbf00;
+    --confidence-8-bg: #addfad;
+    --confidence-9-bg: #28a745;
     --confidence-text-color: #ffffff;
-    --confidence-text-dark: #333333;
 
-    /* Dynamic background colors based on detected Tone */
-    /* Note: I tried getting the AI to provide a hex code but it did not achieve
-       consistent results. So here we are. */
+    /* Tone Colors */
     --tone-humorous-bg: #ffc107;
     --tone-sarcastic-bg: #fd7e14;
     --tone-ironic-bg: #e88433;
@@ -331,301 +355,433 @@
     --tone-nostalgic-bg: #f8c3b6;
     --tone-default-bg: #6c757d;
     --tone-text-color: #ffffff;
-    --tone-text-dark: #333333;
   }
 
-  /* Main container for the popup content */
   main {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--background-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
     color: var(--text-color);
-    min-width: 300px; 
+    min-width: 300px;
     max-width: 500px;
     line-height: 1.5;
-    box-shadow: none; 
-    padding: 0; 
-    display: flex;
-    flex-direction: column; 
-    overflow: hidden;
-  }
-
-  /* Container for the main interpretation result */
-  .result-card {
-    background-color: var(--card-background);
-    border: none;
-    border-radius: 0;
-    margin: 0;
-    padding: 15px;
+    box-shadow: var(--box-shadow);
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    overflow: hidden;
+    transition: background-color var(--transition-normal);
+    border-radius: var(--border-radius-lg);
+    background: var(--main-background);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
 
-  /* Loading message style */
+  .result-card,
+  .welcome,
+  .no-data,
+  .error-container {
+    border-radius: var(--border-radius-md);
+    background-color: var(--card-background);
+    box-shadow: var(--box-shadow);
+    padding: 16px;
+    transition: background-color var(--transition-normal);
+  }
+
+  .result-card {
+    gap: 13px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .welcome,
+  .no-data {
+    text-align: center;
+    color: var(--muted-text-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .error-container {
+    color: var(--error-color);
+    border: 1px solid var(--border-color);
+  }
+
   .loading-message {
-    padding: 20px;
+    padding: 22px;
     text-align: center;
     color: var(--muted-text-color);
     font-style: italic;
+    animation: pulse 1.5s infinite alternate;
   }
 
-  /* Container for error messages */
-  .error-container {
-      background-color: var(--error-background);
-      color: var(--error-color);
-      padding: 15px;
-      border: 1px solid var(--error-color);
-      border-radius: 4px;
-      margin: 10px;
+  @keyframes pulse {
+    from {
+      opacity: 0.7;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
-  /* General error text */
   .error {
-      margin: 0 0 5px 0; 
-      font-weight: bold;
+    margin: 0 0 5px 0;
+    font-weight: bold;
   }
 
-  /* Suggestion text within the error container */
   .error-suggestion {
-      font-size: 0.9em;
-      margin: 0;
+    font-size: 0.9em;
+    margin: 0;
   }
 
-  /* Section displaying the original content (text, image, link) */
   .original-target {
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 15px;
-    margin-bottom: 15px;
+    padding-bottom: 13px;
+    margin-bottom: 13px;
   }
 
-  /* Style for quoted original text selection */
   .original-text {
     font-style: italic;
     background-color: var(--light-background);
     padding: 10px;
-    border-radius: 4px;
+    border-radius: var(--border-radius-md);
     color: var(--muted-text-color);
     word-wrap: break-word;
+    box-shadow: 0 1px 3px var(--shadow-color);
+    transition: box-shadow var(--transition-fast);
   }
 
-  /* Container for the original image */
+  .original-text:hover {
+    box-shadow: 0 2px 5px var(--shadow-color);
+  }
+
   .original-image {
     text-align: center;
     background-color: var(--light-background);
     padding: 10px;
-    border-radius: 4px;
+    border-radius: var(--border-radius-md);
+    box-shadow: 0 1px 3px var(--shadow-color);
+    transition:
+      transform var(--transition-normal),
+      box-shadow var(--transition-normal);
   }
 
-  /* Style for the original image itself */
+  .original-image:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 8px var(--shadow-color);
+  }
+
   .original-image img {
     max-width: 100%;
     max-height: 150px;
     display: block;
     margin: 0 auto;
-    border-radius: 3px;
+    border-radius: var(--border-radius-sm);
+    transition: transform var(--transition-fast);
   }
 
-  /* Error message when image fails to load */
+  .original-image:hover img {
+    transform: scale(1.02);
+  }
+
   .image-error {
     color: var(--error-color);
     font-style: italic;
   }
 
-  /* Style for displaying the original link */
-  .original-link, .original-page {
+  .original-link,
+  .original-page {
     font-size: 0.9em;
     color: var(--muted-text-color);
     word-wrap: break-word;
   }
 
-  /* Styling for links within the original target section */
-  .original-link a, .original-page a {
+  .original-link a,
+  .original-page a {
     color: var(--link-color);
     text-decoration: none;
   }
-  .original-link a:hover, .original-page a:hover {
+  .original-link a:hover,
+  .original-page a:hover {
     text-decoration: underline;
   }
 
-  /* Fallback text if original content type is unknown or can't be previewed */
   .fallback-target {
-      font-size: 0.9em;
-      color: var(--muted-text-color);
-      font-style: italic;
+    font-size: 0.9em;
+    color: var(--muted-text-color);
+    font-style: italic;
   }
 
-  /* Main interpretation text */
   .interpretation-text {
     margin: 0;
     font-size: 1.05em;
     line-height: 1.6;
   }
 
-  /* Section containing Tone and Confidence */
   .details-section {
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 9px;
+    margin-top: 9px;
+    padding-top: 9px;
     font-size: 0.9em;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border-color);
   }
 
-  /* Individual item within the details section (e.g., Tone, Confidence) */
   .detail-item {
     display: flex;
     align-items: center;
     gap: 5px;
   }
 
-  /* Label text (e.g., "Tone:", "Confidence:") */
   .detail-label {
     color: var(--muted-text-color);
     font-weight: 500;
   }
 
-  /* Value display (e.g., the actual tone or confidence percentage) */
   .detail-value {
     padding: 3px 8px;
     border-radius: 12px;
     font-weight: 600;
   }
 
-  /* Specific styling for the confidence value badge */
   .confidence-value {
-      min-width: 45px;
-      text-align: center;
+    min-width: 45px;
+    text-align: center;
+    color: var(--confidence-text-color);
   }
 
-  /* Dynamically applied confidence classes (background and text color) */
-  /* Background colors are defined in :root */
-  .confidence-0 { background-color: var(--confidence-0-bg); color: var(--confidence-text-color); }
-  .confidence-1 { background-color: var(--confidence-1-bg); color: var(--confidence-text-color); }
-  .confidence-2 { background-color: var(--confidence-2-bg); color: var(--confidence-text-color); }
-  .confidence-3 { background-color: var(--confidence-3-bg); color: var(--confidence-text-color); }
-  .confidence-4 { background-color: var(--confidence-4-bg); color: var(--confidence-text-dark); } 
-  .confidence-5 { background-color: var(--confidence-5-bg); color: var(--confidence-text-dark); } 
-  .confidence-6 { background-color: var(--confidence-6-bg); color: var(--confidence-text-dark); } 
-  .confidence-7 { background-color: var(--confidence-7-bg); color: var(--confidence-text-dark); } 
-  .confidence-8 { background-color: var(--confidence-8-bg); color: var(--confidence-text-color); }
-  .confidence-9 { background-color: var(--confidence-9-bg); color: var(--confidence-text-color); }
+  .confidence-0 { background-color: var(--confidence-0-bg); }
+  .confidence-1 { background-color: var(--confidence-1-bg); }
+  .confidence-2 { background-color: var(--confidence-2-bg); }
+  .confidence-3 { background-color: var(--confidence-3-bg); }
+  .confidence-4 { background-color: var(--confidence-4-bg); color: var(--text-color); }
+  .confidence-5 { background-color: var(--confidence-5-bg); color: var(--text-color); }
+  .confidence-6 { background-color: var(--confidence-6-bg); color: var(--text-color); }
+  .confidence-7 { background-color: var(--confidence-7-bg); color: var(--text-color); }
+  .confidence-8 { background-color: var(--confidence-8-bg); color: var(--text-color); }
+  .confidence-9 { background-color: var(--confidence-9-bg); }
 
-  /* Dynamically applied tone classes (background and text color) */
-  /* Default background and text color for all tones, overridden by specific rules below */
-  .tone-value { 
-    color: var(--tone-text-color); 
-    background-color: var(--tone-default-bg); /* Default background */
+  .tone-value {
+    color: var(--tone-text-color);
+    background-color: var(--tone-default-bg);
   }
 
-  /* Specific tones needing dark text (override default text color) */
-  .tone-humorous { background-color: var(--tone-humorous-bg); color: var(--tone-text-dark); }
-  .tone-playful { background-color: var(--tone-playful-bg); color: var(--tone-text-dark); }
-  .tone-calm { background-color: var(--tone-calm-bg); color: var(--tone-text-dark); }
-  .tone-neutral { background-color: var(--tone-neutral-bg); color: var(--tone-text-dark); }
-  .tone-informative { background-color: var(--tone-informative-bg); color: var(--tone-text-dark); }
-  .tone-optimistic { background-color: var(--tone-optimistic-bg); color: var(--tone-text-dark); }
-  .tone-celebratory { background-color: var(--tone-celebratory-bg); color: var(--tone-text-dark); }
-  .tone-warning { background-color: var(--tone-warning-bg); color: var(--tone-text-dark); }
-  .tone-detached { background-color: var(--tone-detached-bg); color: var(--tone-text-dark); }
-  .tone-nostalgic { background-color: var(--tone-nostalgic-bg); color: var(--tone-text-dark); }
+  .tone-humorous {
+    background-color: var(--tone-humorous-bg);
+    color: var(--text-color);
+  }
+  .tone-playful {
+    background-color: var(--tone-playful-bg);
+    color: var(--text-color);
+  }
+  .tone-calm {
+    background-color: var(--tone-calm-bg);
+    color: var(--text-color);
+  }
+  .tone-neutral {
+    background-color: var(--tone-neutral-bg);
+    color: var(--text-color);
+  }
+  .tone-informative {
+    background-color: var(--tone-informative-bg);
+    color: var(--text-color);
+  }
+  .tone-optimistic {
+    background-color: var(--tone-optimistic-bg);
+    color: var(--text-color);
+  }
+  .tone-celebratory {
+    background-color: var(--tone-celebratory-bg);
+    color: var(--text-color);
+  }
+  .tone-warning {
+    background-color: var(--tone-warning-bg);
+    color: var(--text-color);
+  }
+  .tone-detached {
+    background-color: var(--tone-detached-bg);
+    color: var(--text-color);
+  }
+  .tone-nostalgic {
+    background-color: var(--tone-nostalgic-bg);
+    color: var(--text-color);
+  }
 
-  /* Tones using default white text (override default background) */
-  .tone-sarcastic { background-color: var(--tone-sarcastic-bg); }
-  .tone-ironic { background-color: var(--tone-ironic-bg); }
-  .tone-angry { background-color: var(--tone-angry-bg); }
-  .tone-sad { background-color: var(--tone-sad-bg); }
-  .tone-anxious { background-color: var(--tone-anxious-bg); }
-  .tone-enthusiastic { background-color: var(--tone-enthusiastic-bg); }
-  .tone-helpful { background-color: var(--tone-helpful-bg); }
-  .tone-dismissive { background-color: var(--tone-dismissive-bg); }
-  .tone-formal { background-color: var(--tone-formal-bg); }
-  .tone-casual { background-color: var(--tone-casual-bg); }
-  .tone-questioning { background-color: var(--tone-questioning-bg); }
-  .tone-surprised { background-color: var(--tone-surprised-bg); }
-  .tone-skeptical { background-color: var(--tone-skeptical-bg); }
-  .tone-frustrated { background-color: var(--tone-frustrated-bg); }
-  .tone-fearful { background-color: var(--tone-fearful-bg); }
-  .tone-urgent { background-color: var(--tone-urgent-bg); }
-  .tone-error { background-color: var(--tone-error-bg); }
-  .tone-pensive { background-color: var(--tone-pensive-bg); }
-  .tone-reflective { background-color: var(--tone-reflective-bg); }
-  .tone-melancholic { background-color: var(--tone-melancholic-bg); }
-  .tone-encouraging { background-color: var(--tone-encouraging-bg); }
-  .tone-romantic { background-color: var(--tone-romantic-bg); }
-  .tone-persuasive { background-color: var(--tone-persuasive-bg); }
-  .tone-curious { background-color: var(--tone-curious-bg); }
-  .tone-serious { background-color: var(--tone-serious-bg); }
-  .tone-authoritative { background-color: var(--tone-authoritative-bg); }
-  .tone-mysterious { background-color: var(--tone-mysterious-bg); }
+  .tone-sarcastic {
+    background-color: var(--tone-sarcastic-bg);
+  }
+  .tone-ironic {
+    background-color: var(--tone-ironic-bg);
+  }
+  .tone-angry {
+    background-color: var(--tone-angry-bg);
+  }
+  .tone-sad {
+    background-color: var(--tone-sad-bg);
+  }
+  .tone-anxious {
+    background-color: var(--tone-anxious-bg);
+  }
+  .tone-enthusiastic {
+    background-color: var(--tone-enthusiastic-bg);
+  }
+  .tone-helpful {
+    background-color: var(--tone-helpful-bg);
+  }
+  .tone-dismissive {
+    background-color: var(--tone-dismissive-bg);
+  }
+  .tone-formal {
+    background-color: var(--tone-formal-bg);
+  }
+  .tone-casual {
+    background-color: var(--tone-casual-bg);
+  }
+  .tone-questioning {
+    background-color: var(--tone-questioning-bg);
+  }
+  .tone-surprised {
+    background-color: var(--tone-surprised-bg);
+  }
+  .tone-skeptical {
+    background-color: var(--tone-skeptical-bg);
+  }
+  .tone-frustrated {
+    background-color: var(--tone-frustrated-bg);
+  }
+  .tone-fearful {
+    background-color: var(--tone-fearful-bg);
+  }
+  .tone-urgent {
+    background-color: var(--tone-urgent-bg);
+  }
+  .tone-error {
+    background-color: var(--tone-error-bg);
+  }
+  .tone-pensive {
+    background-color: var(--tone-pensive-bg);
+  }
+  .tone-reflective {
+    background-color: var(--tone-reflective-bg);
+  }
+  .tone-melancholic {
+    background-color: var(--tone-melancholic-bg);
+  }
+  .tone-encouraging {
+    background-color: var(--tone-encouraging-bg);
+  }
+  .tone-romantic {
+    background-color: var(--tone-romantic-bg);
+  }
+  .tone-persuasive {
+    background-color: var(--tone-persuasive-bg);
+  }
+  .tone-curious {
+    background-color: var(--tone-curious-bg);
+  }
+  .tone-serious {
+    background-color: var(--tone-serious-bg);
+  }
+  .tone-authoritative {
+    background-color: var(--tone-authoritative-bg);
+  }
+  .tone-mysterious {
+    background-color: var(--tone-mysterious-bg);
+  }
 
-  /* Wrapper for the button inside details-section */
   .button-wrapper {
-    flex-basis: 100%; 
-    text-align: center; 
+    flex-basis: 100%;
+    text-align: center;
     margin-top: 10px;
   }
 
-  /* Styling for buttons */
   button {
-      background-color: var(--primary-color);
-      color: white;
-      border: none;
-      padding: 8px 15px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9em;
-      transition: background-color 0.2s ease;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 9px 18px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.95em;
+    font-weight: 500;
+    transition: all var(--transition-normal);
+    box-shadow: 0 2px 5px rgba(0, 123, 255, 0.3);
   }
 
   button:hover {
-      background-color: #0056b3;
+    background-color: #0069d9;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    transform: translateY(-2px);
   }
 
   button:active {
-       background-color: #004085; 
+    background-color: #004085;
+    box-shadow: 0 1px 3px rgba(0, 123, 255, 0.4);
+    transform: translateY(0);
   }
 
-  /* Container for the context summary explanation */
   .context-summary {
-      margin-top: 10px;
-      padding: 10px;
-      background-color: var(--light-background);
-      border-radius: 4px;
-      font-size: 0.9em;
-      color: var(--muted-text-color);
-      border: 1px dashed var(--border-color);
+    margin-top: 11px;
+    padding: 12px;
+    background-color: var(--light-background);
+    border-radius: var(--border-radius-md);
+    font-size: 0.95em;
+    color: var(--muted-text-color);
+    border: 1px dashed var(--border-color);
+    box-shadow: 0 1px 3px var(--shadow-color);
+    transition:
+      box-shadow var(--transition-normal),
+      transform var(--transition-normal);
+    animation: fadeIn 0.3s ease;
   }
 
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .context-summary:hover {
+    box-shadow: 0 3px 8px var(--shadow-color);
+    transform: translateY(-1px);
+  }
   .context-summary p {
-      margin: 0;
+    margin: 0;
   }
 
   .context-summary strong {
-      color: var(--text-color);
+    color: var(--text-color);
   }
 
-  /* Style for the default message shown when no interpretation is loaded */
   .no-data {
-    padding: 20px;
+    padding: 25px;
     text-align: center;
     color: var(--muted-text-color);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
+    border-radius: var(--border-radius-lg);
+    background-color: var(--card-background);
+    box-shadow: var(--box-shadow);
+    margin: 12px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
-
   .no-data p {
-      margin: 0;
+    margin: 0;
   }
 
-  /* Larger icon for the default message */
   .no-data p:first-child {
-      font-size: 2em;
-      margin-bottom: 5px;
+    font-size: 2em;
+    margin-bottom: 5px;
   }
 
   .no-data small {
@@ -633,15 +789,20 @@
     max-width: 80%;
   }
 
-  /* Add welcome styles */
   .welcome {
-    padding: 20px;
+    padding: 25px;
     text-align: center;
     color: var(--text-color);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    border-radius: var(--border-radius-lg);
+    background-color: var(--card-background);
+    box-shadow: var(--box-shadow);
+    margin: 12px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 
   .welcome h2 {
@@ -662,6 +823,14 @@
   .welcome-start {
     font-weight: bold;
     color: var(--primary-color);
-    font-size: 1.1em;
+    font-size: 1.2em;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.03);
+    animation: pulse 2s infinite alternate;
+  }
+
+  .welcome,
+  .no-data {
+    padding: 22px;
+    gap: 10px;
   }
 </style>
