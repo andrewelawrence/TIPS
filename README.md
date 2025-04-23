@@ -1,6 +1,6 @@
 # TIPS: A TwIPS Tool
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-green.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Version](https://img.shields.io/badge/version-0.6.1-blue)](https://github.com/andrewelawrence/TIPS/releases) 
 ![CI](https://img.shields.io/github/actions/workflow/status/andrewelawrence/TIPS/.github/workflows/deploy.yml?branch=main)
 
