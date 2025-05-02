@@ -2,7 +2,7 @@
 
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-green.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Version](https://img.shields.io/badge/version-0.6.1-blue)](https://github.com/andrewelawrence/TIPS/releases) 
-![CI](https://img.shields.io/github/actions/workflow/status/andrewelawrence/TIPS/.github/workflows/deploy.yml?branch=main)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/andrewelawrence/TIPS/.github/workflows/deploy.yml?branch=main)](https://github.com/andrewelawrence/TIPS/actions)
 
 **TIPS is a Chromium browser extension designed to enhance online communication by providing AI-powered interpretations of text and images.**
 
@@ -79,13 +79,20 @@ See the [Road Map](ROADMAP.md) for details on planned features.
     npm install
     ```
 
-4.  **Configure API Key:**
+4.  **Configure API Keys:**
     *   Get an API key from [Anthropic](https://console.anthropic.com/).
     ```bash
     touch .env.local
     # Add your key to the file: `VITE_ANTHROPIC_API_KEY=YOUR_ANTHROPIC_API_KEY_HERE`
     # *(Note: `.env.local` is in `.gitignore` and should not be committed.)*
     ```
+    *   **Configure Firebase Logging:**
+        *   Go to the [Firebase Console](https://console.firebase.google.com/) and create a new project (or use an existing one).
+        *   Add the following to your `.env.local` file:
+            ```
+            VITE_FIREBASE_DATABASE_URL=YOUR_FIREBASE_DATABASE_URL
+            VITE_ENABLE_LOGGING=true
+            ```
 
 5.  **Build the Extension:**
     ```bash

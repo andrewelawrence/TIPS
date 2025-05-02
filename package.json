@@ -1,6 +1,6 @@
 {
   "name": "tips",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Context-informed interpretations. Helping users navigate online communication.",
   "type": "module",
   "scripts": {
@@ -17,7 +17,8 @@
     "axios": "^0.24.0",
     "body-parser": "^1.19.0",
     "dotenv": "^10.0.0",
-    "express": "^4.17.1"
+    "express": "^4.17.1",
+    "firebase": "^11.6.1"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.1.0",

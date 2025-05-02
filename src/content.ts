@@ -5,6 +5,21 @@ import "rangy/lib/rangy-classapplier";
 
 console.log("[ContentScript] Loaded (v0.6.1).");
 
+// --- Inject CSS for Loading Animation --- Inject animation styles dynamically
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes tipsPulse {
+    0% { transform: scale(1); opacity: 1; filter: brightness(1); } /* Normal state */
+    50% { transform: scale(1.2); opacity: 0.9; filter: brightness(1.4); } /* Bigger, slightly transparent, brighter */
+    100% { transform: scale(1); opacity: 1; filter: brightness(1); } /* Back to normal */
+  }
+
+  .tips-icon.tips-loading {
+    animation: tipsPulse 1.5s infinite ease-in-out;
+  }
+`;
+document.head.appendChild(style);
+
 // State variables
 let tipsIcon: HTMLDivElement | null = null;
 let currentSelection: string | null = null;
@@ -107,6 +122,7 @@ function createOrUpdateInteractionIcon() {
   // Create new icon
   tipsIcon = document.createElement("div");
   tipsIcon.textContent = "💡";
+  tipsIcon.classList.add("tips-icon");
   tipsIcon.style.position = "absolute";
   tipsIcon.style.fontSize = `${iconSize}px`;
   tipsIcon.style.lineHeight = "1";
@@ -161,6 +177,7 @@ function createIconAtPosition(x: number, y: number, isGrayscaled = false) {
   // Create new icon
   tipsIcon = document.createElement("div");
   tipsIcon.textContent = "💡";
+  tipsIcon.classList.add("tips-icon");
   tipsIcon.style.position = "absolute";
   tipsIcon.style.fontSize = `${iconSize}px`;
   tipsIcon.style.lineHeight = "1";
@@ -233,15 +250,21 @@ function handleIconClick(event: MouseEvent) {
   markInteraction();
 
   if (!currentSelection || !currentSelectionRange || !tipsIcon) {
-    // console.warn("[ContentScript] Icon clicked but required state is missing.");
     hideInteractionIcon(true);
     resetSelectionState();
     return;
   }
 
-  lastIconRect = tipsIcon.getBoundingClientRect();
+  const currentIcon = tipsIcon; // Use the global icon directly
+  // const currentIconId = "tips-icon-" + Date.now(); // Removed ID generation
+  // currentIcon.dataset.tipsId = currentIconId; // Removed dataset usage
 
-  setIconGrayscale(true);
+  lastIconRect = currentIcon.getBoundingClientRect();
+
+  // Set loading state immediately using CSS class
+  // currentIcon.textContent = "⏳"; // Removed
+  currentIcon.classList.add("tips-loading"); // Add loading class
+  currentIcon.style.filter = "";
 
   const pageUrl = window.location.href;
   const pageTitle =
@@ -254,37 +277,46 @@ function handleIconClick(event: MouseEvent) {
     selectionText: currentSelection,
     pageUrl: pageUrl,
     pageTitle: pageTitle,
+    // --- Add scroll position to target info --- REMOVED
+    // scrollX: currentScrollX,
+    // scrollY: currentScrollY,
+    // ---
   };
 
-//   console.log(
-//     "[ContentScript] Sending INTERPRET_TARGET message to background script."
-//   );
   chrome.runtime.sendMessage(
     {
       type: "INTERPRET_TARGET",
       target: targetInfo,
+      // targetId: currentIconId, // Removed ID
     },
     (response) => {
-      // Handle both success and error in the callback
       if (chrome.runtime.lastError) {
         console.error(
           "[ContentScript] Error sending message:",
           chrome.runtime.lastError
         );
+        // Revert loading state only if the icon is still the loading one
+        if (currentIcon) {
+            // currentIcon.textContent = "💡"; // Removed
+            currentIcon.classList.remove("tips-loading"); // Remove loading class
+        }
         showTooltipNextToIcon("Error communicating with extension.", true);
-        setIconGrayscale(false);
         return;
       }
 
-      // Optional response handling
       if (response && response.error) {
         console.error(
           "[ContentScript] Background reported error:",
           response.error
         );
+         // Revert loading state only if the icon is still the loading one
+         if (currentIcon) {
+            // currentIcon.textContent = "💡"; // Removed
+            currentIcon.classList.remove("tips-loading"); // Remove loading class
+        }
         showTooltipNextToIcon("Error: " + response.error, true);
-        setIconGrayscale(false);
       }
+      // Keep loading class if processing started successfully
     }
   );
 }
@@ -413,54 +445,96 @@ function hideTooltip(fast = false) {
 
 // Message Listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+
+  // Removed findTargetIcon helper
+
   // Handle context menu interpretation request
   if (message.type === "CONTEXT_MENU_INTERPRET_STARTED") {
     // console.log("[ContentScript] Context menu interpretation started, creating icon");
     if (lastContextMenuPosition) {
-      // Create grayscaled icon at context menu position
-      createIconAtPosition(
-        lastContextMenuPosition.x,
-        lastContextMenuPosition.y,
-        true
-      );
+       if (!tipsIcon) { // Only create if it doesn't exist
+           createIconAtPosition(
+            lastContextMenuPosition.x,
+            lastContextMenuPosition.y,
+            false // Don't grayscale here
+          );
+        //   if (tipsIcon) { // Removed dataset assignment
+        //       tipsIcon.dataset.tipsId = "context-menu-target"; 
+        //   }
+      }
+      // No need to explicitly set loading here, INTERPRETATION_NOW_LOADING will handle it
     }
     return false;
   }
 
-  // Handle interpretation results with clearer messaging
-  if (message.type === "INTERPRETATION_READY") {
-    // console.log(`[ContentScript] Handling interpretation success`);
-    
-    const notificationMessage = "Interpretation Complete! Click extension icon.";
-    
-    // If we have an icon, show tooltip next to it and turn off grayscale
-    if (tipsIcon && lastIconRect) {
-      setIconGrayscale(false);
-      showTooltipNextToIcon(notificationMessage, false);
-      return false;
+  // Handle start of interpretation loading
+  if (message.type === "INTERPRETATION_NOW_LOADING") {
+    // console.log(`[ContentScript] Handling INTERPRETATION_NOW_LOADING`);
+    if (tipsIcon) {
+      // tipsIcon.textContent = "⏳"; // Removed
+      tipsIcon.classList.add("tips-loading"); // Add loading class
+      tipsIcon.style.filter = ""; 
+      hideTooltip(true);
+    } else {
+        // console.warn("[ContentScript] INTERPRETATION_NOW_LOADING received, but no icon found.");
     }
-    
-    // Fallback to top-right corner
-    showTopRightTooltip(notificationMessage, false);
+    return false;
   }
-  
+
+  // Handle interpretation results
+  if (message.type === "INTERPRETATION_READY") {
+    // console.log(`[ContentScript] Handling INTERPRETATION_READY`);
+    const notificationMessage = "Interpretation Complete! Click the badge to view.";
+
+    if (tipsIcon) {
+      // tipsIcon.textContent = "💡"; // Removed (already 💡)
+      tipsIcon.classList.remove("tips-loading"); // Remove loading class
+      tipsIcon.style.filter = ""; 
+      
+      showTooltipNextToIcon(notificationMessage, false);
+      // Removed auto-hide, let user dismiss or interaction hide it
+      // setTimeout(() => hideTooltip(false), 3000);
+    } else {
+      showTopRightTooltip(notificationMessage, false);
+       // Removed auto-hide
+       // setTimeout(() => hideTooltip(false), 3000);
+    }
+    return false;
+  }
+
   // Handle interpretation failures
   if (message.type === "INTERPRETATION_FAILED") {
-    // console.log(`[ContentScript] Handling interpretation failure`);
-    
+    // console.log(`[ContentScript] Handling INTERPRETATION_FAILED`);
     const errorMessage = message.error || "Unknown Error";
-    const notificationMessage = `Interpretation failed: ${errorMessage}`;
-    
-    // If we have an icon, show tooltip next to it and turn off grayscale
-    if (tipsIcon && lastIconRect) {
-      setIconGrayscale(false);
+    const notificationMessage = `Failed: ${errorMessage}`;
+
+    if (tipsIcon) { 
+       // tipsIcon.textContent = "❗️"; // Removed error icon change
+       tipsIcon.classList.remove("tips-loading"); // Remove loading class
+       tipsIcon.style.filter = ""; 
+
       showTooltipNextToIcon(notificationMessage, true);
-      return false;
+      
+      // No need to revert icon text anymore, just hide tooltip
+      setTimeout(() => {
+          // if(tipsIcon && tipsIcon.textContent === "❗️") { // Removed check
+          //   tipsIcon.textContent = "💡";
+          // }
+          hideTooltip(false); 
+      }, 5000); 
+    } else {
+      showTopRightTooltip(notificationMessage, true);
+       setTimeout(() => hideTooltip(false), 5000); 
     }
-    
-    // Fallback to top-right corner
-    showTopRightTooltip(notificationMessage, true);
+     return false;
   }
+
+  // --- Add handler to restore scroll position --- REMOVED
+  // if (message.type === "RESTORE_SCROLL_POSITION") {
+  //   // console.log(`[ContentScript] Restoring scroll to X: ${message.scrollX}, Y: ${message.scrollY}`);
+  //   window.scrollTo(message.scrollX, message.scrollY);
+  //   return false; // Indicate async response is not needed
+  // }
 
   return false;
 });
