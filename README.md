@@ -1,7 +1,7 @@
 # TIPS: A TwIPS Tool
 
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-green.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
-[![Version](https://img.shields.io/badge/version-0.6.1-blue)](https://github.com/andrewelawrence/TIPS/releases) 
+[![Version](https://img.shields.io/badge/version-0.6.3-blue)](https://github.com/andrewelawrence/TIPS/releases) 
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/andrewelawrence/TIPS/.github/workflows/deploy.yml?branch=main)](https://github.com/andrewelawrence/TIPS/actions)
 
 **TIPS is a Chromium browser extension designed to enhance online communication by providing AI-powered interpretations of text and images.**
@@ -15,12 +15,12 @@ In online discussions, forums, and social media, the true meaning, tone, and con
 
 ## Current Status
 
-⚠️ **Alpha - v0.6.1:** This extension is currently under active development, focusing on the core "Interpret" and "Context" features via the right-click menu. Expect bugs and ongoing changes.
+⚠️ **Alpha - v0.6.3:** This extension is still under development. Expect bugs.
 
 ## Features
 
 ### Interpret Text
-Select any text on a webpage, right-click, and choose "Interpret" to get AI analysis of its meaning, tone, and nuance.
+Select any text on a webpage and click the icon to "Interpret" and get AI analysis of its meaning, tone, and nuance.
 
 <img src="src/public/assets/interpret_text.gif" alt="Interpreting text with TIPS" width="600"/>
 
@@ -34,26 +34,6 @@ Add relevant page elements to context before interpreting for more accurate resu
 
 <img src="src/public/assets/interpret_with_context.gif" alt="Using context for better interpretation" width="600"/>
 
-### Core Functionality Details
-
-*   **Interpretation:**
-    *   Users can click on the '💡' icon or select `Interpret` from the context menu to trigger analysis of the selected content.
-    *   Doing so sends the target content and any user-added context to the background service worker.
-    *   The background script calls the Anthropic Claude API with a specialized system prompt designed for contextual interpretation, confidence scoring, and tone analysis.
-    *   The AI response is parsed and the result (interpretation, original content reference, context used) is displayed in the popup.
-*   **Context Menu:**
-    *   Right-clicking on selected text, images, links, or the page itself reveals context menu options: `Interpret`, `Add to Context` and `Clear Context`.
-    *   Selecting "Add to Context" saves a reference to the right-clicked element to a temporary list associated with the current tab.
-    *   This list of context items is included with subsequent "Interpret" requests for that tab, allowing users to guide the AI's understanding. Context is automatically cleared when the tab is closed or navigated away.
-*   **Popup Display:**
-    *   The popup shows the element that was interpreted, displaying the AI's interpretation text below the element.
-*   **Welcome Page:**
-    *   Upon first installation, the extension opens a welcome page explaining the features and basic usage.
-
-### Future Features
-
-See the [Road Map](ROADMAP.md) for details on planned features.
-
 ## Technology Stack
 
 *   **Platform:** Chrome Extension (Manifest V3)
@@ -65,7 +45,7 @@ See the [Road Map](ROADMAP.md) for details on planned features.
 
 ## Development Setup
 
-1.  **Prerequisites:** Ensure you have [Node.js](https://nodejs.org/) (LTS version recommended) and [Git](https://git-scm.com/) installed.
+1.  **Prerequisites:** Ensure you have [Node.js](https://nodejs.org/) and [Git](https://git-scm.com/) installed.
 
 2.  **Clone & Navigate:**
     ```bash
@@ -139,10 +119,10 @@ See the [Road Map](ROADMAP.md) for details on planned features.
 ## Acknowledgements
 
 *   Inspired by the [TwIPS](https://arxiv.org/pdf/2407.17760) research paper.
-*   [Tip Icon](https://icons8.com/icon/12244/idea) by [Icons8](https://icons8.com).
+*   [Tip Icon](https://icons8.com/icon/Z95XtLhDtSm6/idea) by [Icons8](https://icons8.com).
 
 ## License
 
 This project is licensed under the Creative Commons License - see the [LICENSE](LICENSE) file for details.
 
-_Last updated: April 2024_
+_Last updated: May 04 2025_
