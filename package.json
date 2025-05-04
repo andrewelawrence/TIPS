@@ -1,6 +1,6 @@
 {
   "name": "tips",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Context-informed interpretations. Helping users navigate online communication.",
   "type": "module",
   "scripts": {
