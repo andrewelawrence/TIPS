@@ -3,9 +3,9 @@ import type { TargetInfo } from "./types";
 import * as rangy from "rangy";
 import "rangy/lib/rangy-classapplier";
 
-console.log("[ContentScript] Loaded (v0.6.1).");
+console.log("[ContentScript] Loaded (v0.6.3).");
 
-// --- Inject CSS for Loading Animation --- Inject animation styles dynamically
+// Inject CSS for loading animation
 const style = document.createElement('style');
 style.textContent = `
   @keyframes tipsPulse {
@@ -21,7 +21,7 @@ style.textContent = `
 document.head.appendChild(style);
 
 // State variables
-let tipsIcon: HTMLDivElement | null = null;
+let tipsIcon: HTMLImageElement | null = null;
 let currentSelection: string | null = null;
 let currentSelectionRange: Range | null = null;
 let isInteractingWithUI = false;
@@ -34,18 +34,17 @@ const DEBOUNCE_DELAY = 250;
 
 // Event Listeners
 document.addEventListener("selectionchange", handleSelectionChange);
-document.addEventListener("mousedown", handleMouseDown);
 document.addEventListener("contextmenu", handleContextMenu);
 
 // Initialize rangy
 (rangy as any).init();
 
-// Track context menu position
+// Tracks the position of the last right-click.
 function handleContextMenu(event: MouseEvent) {
   lastContextMenuPosition = { x: event.clientX, y: event.clientY };
 }
 
-// Mark interaction with UI elements to prevent immediate hiding
+// Marks interaction with UI elements to prevent immediate hiding.
 function markInteraction() {
   isInteractingWithUI = true;
   if (interactionTimeout) clearTimeout(interactionTimeout);
@@ -55,7 +54,7 @@ function markInteraction() {
   }, DEBOUNCE_DELAY);
 }
 
-// Handle text selection changes
+// Handles text selection changes, creating/updating the icon.
 function handleSelectionChange() {
   if (debounceTimeout) {
     clearTimeout(debounceTimeout);
@@ -87,12 +86,7 @@ function handleSelectionChange() {
   }, DEBOUNCE_DELAY);
 }
 
-// Handle mouse down events
-function handleMouseDown(event: MouseEvent) {
-  if (isInteractingWithUI) return;
-}
-
-// Reset selection state
+// Resets the selection state and related variables.
 function resetSelectionState() {
   currentSelection = null;
   currentSelectionRange = null;
@@ -104,7 +98,7 @@ function resetSelectionState() {
   }
 }
 
-// Create or update the interaction icon
+// Creates or updates the interaction icon next to the selection.
 function createOrUpdateInteractionIcon() {
   if (!currentSelectionRange) return;
 
@@ -120,12 +114,13 @@ function createOrUpdateInteractionIcon() {
   const scrollY = window.scrollY;
 
   // Create new icon
-  tipsIcon = document.createElement("div");
-  tipsIcon.textContent = "💡";
+  tipsIcon = document.createElement("img");
+  tipsIcon.src = chrome.runtime.getURL("icons/icon64.png");
+  tipsIcon.alt = "TIPS Icon";
   tipsIcon.classList.add("tips-icon");
   tipsIcon.style.position = "absolute";
-  tipsIcon.style.fontSize = `${iconSize}px`;
-  tipsIcon.style.lineHeight = "1";
+  tipsIcon.style.width = `${iconSize}px`;
+  tipsIcon.style.height = `${iconSize}px`;
   tipsIcon.style.cursor = "pointer";
   tipsIcon.style.zIndex = "2147483646";
   tipsIcon.style.userSelect = "none";
@@ -162,8 +157,8 @@ function createOrUpdateInteractionIcon() {
   lastIconRect = tipsIcon.getBoundingClientRect();
 }
 
-// Create an icon at the specified position (for context menu)
-function createIconAtPosition(x: number, y: number, isGrayscaled = false) {
+// Creates an icon at a specific position (used for context menu actions).
+function createIconAtPosition(x: number, y: number) {
   // Remove existing icon to avoid state issues
   if (tipsIcon) {
     tipsIcon.remove();
@@ -175,12 +170,13 @@ function createIconAtPosition(x: number, y: number, isGrayscaled = false) {
   const scrollY = window.scrollY;
 
   // Create new icon
-  tipsIcon = document.createElement("div");
-  tipsIcon.textContent = "💡";
+  tipsIcon = document.createElement("img");
+  tipsIcon.src = chrome.runtime.getURL("icons/icon64.png");
+  tipsIcon.alt = "TIPS Icon";
   tipsIcon.classList.add("tips-icon");
   tipsIcon.style.position = "absolute";
-  tipsIcon.style.fontSize = `${iconSize}px`;
-  tipsIcon.style.lineHeight = "1";
+  tipsIcon.style.width = `${iconSize}px`;
+  tipsIcon.style.height = `${iconSize}px`;
   tipsIcon.style.cursor = "pointer";
   tipsIcon.style.zIndex = "2147483646";
   tipsIcon.style.userSelect = "none";
@@ -193,13 +189,7 @@ function createIconAtPosition(x: number, y: number, isGrayscaled = false) {
   tipsIcon.style.left = `${x + scrollX - iconSize / 2}px`;
   tipsIcon.style.top = `${y + scrollY - iconSize / 2}px`;
   tipsIcon.style.display = "block";
-
-  // Apply grayscale if needed
-  if (isGrayscaled) {
-    tipsIcon.style.filter = "grayscale(80%) brightness(0.7)";
-  } else {
-    tipsIcon.style.filter = "";
-  }
+  tipsIcon.style.filter = "";
 
   // Show immediately
   tipsIcon.style.opacity = "1";
@@ -210,23 +200,7 @@ function createIconAtPosition(x: number, y: number, isGrayscaled = false) {
   return tipsIcon;
 }
 
-// Set icon as grayscaled or normal
-function setIconGrayscale(grayscaled: boolean) {
-  if (tipsIcon) {
-    if (grayscaled) {
-      tipsIcon.style.filter = "grayscale(80%) brightness(0.7)";
-    } else {
-      tipsIcon.style.filter = "";
-      // Add a subtle "glow" effect when turning on
-      tipsIcon.style.transform = "scale(1.1)";
-      setTimeout(() => {
-        if (tipsIcon) tipsIcon.style.transform = "scale(1)";
-      }, 200);
-    }
-  }
-}
-
-// Hide the interaction icon
+// Hides the interaction icon, optionally immediately.
 function hideInteractionIcon(fast = false) {
   if (tipsIcon) {
     tipsIcon.style.filter = "";
@@ -244,7 +218,7 @@ function hideInteractionIcon(fast = false) {
   }
 }
 
-// Handle icon click
+// Handles clicks on the interaction icon to trigger interpretation.
 function handleIconClick(event: MouseEvent) {
   event.stopPropagation();
   markInteraction();
@@ -256,13 +230,10 @@ function handleIconClick(event: MouseEvent) {
   }
 
   const currentIcon = tipsIcon; // Use the global icon directly
-  // const currentIconId = "tips-icon-" + Date.now(); // Removed ID generation
-  // currentIcon.dataset.tipsId = currentIconId; // Removed dataset usage
 
   lastIconRect = currentIcon.getBoundingClientRect();
 
   // Set loading state immediately using CSS class
-  // currentIcon.textContent = "⏳"; // Removed
   currentIcon.classList.add("tips-loading"); // Add loading class
   currentIcon.style.filter = "";
 
@@ -277,10 +248,6 @@ function handleIconClick(event: MouseEvent) {
     selectionText: currentSelection,
     pageUrl: pageUrl,
     pageTitle: pageTitle,
-    // --- Add scroll position to target info --- REMOVED
-    // scrollX: currentScrollX,
-    // scrollY: currentScrollY,
-    // ---
   };
 
   chrome.runtime.sendMessage(
@@ -295,9 +262,7 @@ function handleIconClick(event: MouseEvent) {
           "[ContentScript] Error sending message:",
           chrome.runtime.lastError
         );
-        // Revert loading state only if the icon is still the loading one
         if (currentIcon) {
-            // currentIcon.textContent = "💡"; // Removed
             currentIcon.classList.remove("tips-loading"); // Remove loading class
         }
         showTooltipNextToIcon("Error communicating with extension.", true);
@@ -309,9 +274,7 @@ function handleIconClick(event: MouseEvent) {
           "[ContentScript] Background reported error:",
           response.error
         );
-         // Revert loading state only if the icon is still the loading one
          if (currentIcon) {
-            // currentIcon.textContent = "💡"; // Removed
             currentIcon.classList.remove("tips-loading"); // Remove loading class
         }
         showTooltipNextToIcon("Error: " + response.error, true);
@@ -321,19 +284,24 @@ function handleIconClick(event: MouseEvent) {
   );
 }
 
-// Show tooltip next to the current icon
-function showTooltipNextToIcon(message: string, isError = false) {
+// Shows a tooltip positioned next to the current interaction icon.
+function showTooltipNextToIcon(message: string, isError = false, backgroundColor?: string) {
   if (!lastIconRect) return;
 
   // Always ensure any existing tooltip is completely removed first
   hideTooltip(true);
-  
+
   // Create a new tooltip with a unique ID
   const tooltipId = `tips-tooltip-${Date.now()}`;
     tooltipElement = document.createElement('div');
     tooltipElement.textContent = message;
     tooltipElement.style.position = 'absolute';
-    tooltipElement.style.background = isError ? 'rgba(220, 53, 69, 0.9)' : 'rgba(40, 167, 69, 0.9)';
+    // Use custom background color if provided, otherwise default based on isError
+    tooltipElement.style.background = backgroundColor
+      ? backgroundColor
+      : isError
+      ? 'rgba(220, 53, 69, 0.9)'
+      : 'rgba(40, 167, 69, 0.9)';
     tooltipElement.style.color = 'white';
     tooltipElement.style.padding = '5px 10px';
     tooltipElement.style.borderRadius = '4px';
@@ -380,47 +348,11 @@ function showTooltipNextToIcon(message: string, isError = false) {
   requestAnimationFrame(() => {
     if (tooltipElement) tooltipElement.style.opacity = "1";
   });
-
-  // Auto-hide after delay
-  if (hideTooltipTimeout) {
-    clearTimeout(hideTooltipTimeout);
-  }
-  hideTooltipTimeout = window.setTimeout(() => hideTooltip(false), 3000);
-}
-
-// Show tooltip in top-right corner (fallback)
-function showTopRightTooltip(message: string, isError = false) {
-  hideTooltip(true);
-
-    tooltipElement = document.createElement('div');
-    tooltipElement.textContent = message;
-    tooltipElement.style.position = 'absolute';
-    tooltipElement.style.background = isError ? 'rgba(220, 53, 69, 0.9)' : 'rgba(40, 167, 69, 0.9)';
-    tooltipElement.style.color = 'white';
-    tooltipElement.style.padding = '5px 10px';
-    tooltipElement.style.borderRadius = '4px';
-    tooltipElement.style.fontSize = '12px';
-    tooltipElement.style.zIndex = '10002';
-    tooltipElement.style.fontFamily = 'system-ui, sans-serif';
-    tooltipElement.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-    tooltipElement.style.opacity = '0';
-    tooltipElement.style.transition = 'opacity 0.3s ease-in-out';
-    tooltipElement.style.pointerEvents = 'none';
-
-  document.body.appendChild(tooltipElement);
-
-  // Fade in
-  requestAnimationFrame(() => {
-    if (tooltipElement) tooltipElement.style.opacity = "1";
-  });
-
-  // Auto-hide after delay
-  setTimeout(() => hideTooltip(false), 3000);
 }
 
 let hideTooltipTimeout: number | null = null;
 
-// Hide tooltip
+// Hides the currently displayed tooltip, optionally immediately.
 function hideTooltip(fast = false) {
   if (hideTooltipTimeout) {
     clearTimeout(hideTooltipTimeout);
@@ -438,8 +370,49 @@ function hideTooltip(fast = false) {
       hideTooltipTimeout = window.setTimeout(() => {
         elementToRemove.remove();
         hideTooltipTimeout = null;
-      }, 300);
+      }, 200);
     }
+  }
+}
+
+// Handles notifications triggered by context menu actions (Add/Clear Context).
+function handleContextNotification(messageText: string, color: string, messageType: string) {
+  if (lastContextMenuPosition) {
+    // Hide any existing icon and its tooltip immediately
+    hideInteractionIcon(true);
+
+    // Create a new temporary icon at the click position
+    const tempIcon = createIconAtPosition(lastContextMenuPosition.x, lastContextMenuPosition.y);
+
+    if (tempIcon) {
+      // Update lastIconRect for tooltip positioning
+      lastIconRect = tempIcon.getBoundingClientRect();
+
+      // Show the tooltip next to the new temporary icon
+      showTooltipNextToIcon(messageText, false, color);
+
+      // Schedule removal of the temporary icon and its tooltip
+      const iconToRemove = tempIcon;
+      const HIDE_DELAY_MS = 3300;
+      setTimeout(() => {
+        // Check if the icon to remove is still the current one
+        if (tipsIcon === iconToRemove && document.body.contains(iconToRemove)) {
+            hideInteractionIcon(false); // Fade out both
+
+            // Reset state if this was indeed the icon we were removing
+            if (tipsIcon === iconToRemove) {
+                tipsIcon = null;
+                lastIconRect = null;
+            }
+        }
+      }, HIDE_DELAY_MS);
+    } else {
+        console.warn(`[handleContextNotification] Failed to create temporary icon for ${messageType}.`);
+    }
+  } else {
+    // This case should ideally not happen if contextmenu listener works.
+    console.warn(`[handleContextNotification] Cannot show notification for ${messageType} - lastContextMenuPosition is unknown.`);
+    // Do not show top-left tooltip as per previous requirement.
   }
 }
 
@@ -450,21 +423,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle context menu interpretation request
   if (message.type === "CONTEXT_MENU_INTERPRET_STARTED") {
-    // console.log("[ContentScript] Context menu interpretation started, creating icon");
     if (lastContextMenuPosition) {
-       if (!tipsIcon) { // Only create if it doesn't exist
-           createIconAtPosition(
-            lastContextMenuPosition.x,
-            lastContextMenuPosition.y,
-            false // Don't grayscale here
-          );
-        //   if (tipsIcon) { // Removed dataset assignment
-        //       tipsIcon.dataset.tipsId = "context-menu-target"; 
-        //   }
-      }
-      // No need to explicitly set loading here, INTERPRETATION_NOW_LOADING will handle it
+       // Interpretation should start fresh at the click location.
+       // Hide any existing icon (and its tooltip) immediately.
+       hideInteractionIcon(true);
+
+       // Create the new icon specifically for this interpretation task.
+       // createIconAtPosition updates the global `tipsIcon`.
+       createIconAtPosition(
+        lastContextMenuPosition.x,
+        lastContextMenuPosition.y
+      );
+      // The `INTERPRETATION_NOW_LOADING` message (sent shortly after this one
+      // by background.ts) will find this new `tipsIcon` and add the
+      // `tips-loading` class to make it pulsate.
+    } else {
+        console.warn("[CONTEXT_MENU_INTERPRET_STARTED] No last context menu position known.");
     }
-    return false;
+    return false; // Indicate synchronous handling
   }
 
   // Handle start of interpretation loading
@@ -483,60 +459,77 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle interpretation results
   if (message.type === "INTERPRETATION_READY") {
-    // console.log(`[ContentScript] Handling INTERPRETATION_READY`);
     const notificationMessage = "Interpretation Complete! Click the badge to view.";
+    const triggerSource = message.triggerSource;
 
+    // Always show tooltip next to the icon
     if (tipsIcon) {
-      // tipsIcon.textContent = "💡"; // Removed (already 💡)
-      tipsIcon.classList.remove("tips-loading"); // Remove loading class
-      tipsIcon.style.filter = ""; 
-      
-      showTooltipNextToIcon(notificationMessage, false);
-      // Removed auto-hide, let user dismiss or interaction hide it
-      // setTimeout(() => hideTooltip(false), 3000);
+         // Stop pulsing
+         tipsIcon.classList.remove("tips-loading");
+         tipsIcon.style.filter = "";
+         // Recalculate rect before showing tooltip
+         lastIconRect = tipsIcon.getBoundingClientRect();
+         showTooltipNextToIcon(notificationMessage, false);
+
+         // If triggered by context menu, hide icon after delay
+         if (triggerSource === 'contextMenu') {
+             setTimeout(() => {
+                 hideInteractionIcon(false);
+                 resetSelectionState();
+             }, 1500);
+         }
+         // If triggered by icon click, icon remains visible
     } else {
-      showTopRightTooltip(notificationMessage, false);
-       // Removed auto-hide
-       // setTimeout(() => hideTooltip(false), 3000);
+        // Should not happen if CONTEXT_MENU_INTERPRET_STARTED created icon
+        console.warn("[INTERPRETATION_READY] No icon found to show tooltip next to.");
     }
     return false;
   }
 
   // Handle interpretation failures
   if (message.type === "INTERPRETATION_FAILED") {
-    // console.log(`[ContentScript] Handling INTERPRETATION_FAILED`);
     const errorMessage = message.error || "Unknown Error";
     const notificationMessage = `Failed: ${errorMessage}`;
 
-    if (tipsIcon) { 
-       // tipsIcon.textContent = "❗️"; // Removed error icon change
-       tipsIcon.classList.remove("tips-loading"); // Remove loading class
-       tipsIcon.style.filter = ""; 
+    // Always show tooltip next to the icon
+    if (tipsIcon) {
+        tipsIcon.classList.remove("tips-loading");
+        tipsIcon.style.filter = "";
+        // Recalculate rect before showing tooltip
+        lastIconRect = tipsIcon.getBoundingClientRect();
+        showTooltipNextToIcon(notificationMessage, true); // Show as error
 
-      showTooltipNextToIcon(notificationMessage, true);
-      
-      // No need to revert icon text anymore, just hide tooltip
-      setTimeout(() => {
-          // if(tipsIcon && tipsIcon.textContent === "❗️") { // Removed check
-          //   tipsIcon.textContent = "💡";
-          // }
-          hideTooltip(false); 
-      }, 5000); 
+        // If triggered by context menu, hide icon after delay
+        if (message.triggerSource === 'contextMenu') {
+             setTimeout(() => {
+                 hideInteractionIcon(false);
+                 resetSelectionState();
+             }, 3000);
+         } else {
+            // If triggered by icon click, auto-hide tooltip after a delay, keep icon
+            setTimeout(() => {
+                hideTooltip(false);
+            }, 5000);
+         }
     } else {
-      showTopRightTooltip(notificationMessage, true);
-       setTimeout(() => hideTooltip(false), 5000); 
+         // Should not happen if CONTEXT_MENU_INTERPRET_STARTED created icon
+         console.warn("[INTERPRETATION_FAILED] No icon found to show tooltip next to.");
     }
      return false;
   }
 
-  // --- Add handler to restore scroll position --- REMOVED
-  // if (message.type === "RESTORE_SCROLL_POSITION") {
-  //   // console.log(`[ContentScript] Restoring scroll to X: ${message.scrollX}, Y: ${message.scrollY}`);
-  //   window.scrollTo(message.scrollX, message.scrollY);
-  //   return false; // Indicate async response is not needed
-  // }
+  // Add handlers for context notifications
+  if (message.type === "CONTEXT_ADDED_NOTIFICATION") {
+    handleContextNotification("Added!", 'rgba(255, 193, 7, 0.9)', message.type);
+    return false;
+  }
+
+  if (message.type === "CONTEXT_CLEARED_NOTIFICATION") {
+    handleContextNotification("Cleared!", 'rgba(108, 117, 125, 0.9)', message.type);
+    return false;
+  }
 
   return false;
 });
 
-console.log("[ContentScript] Initialization complete (v0.6.1).");
+console.log("[ContentScript] Initialization complete (v0.6.3).");

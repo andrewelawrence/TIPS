@@ -13,7 +13,7 @@ import type {
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, push, set } from "firebase/database";
 
-console.log("[Background] Script Loaded (v0.6.1).");
+console.log("[Background] Script Loaded (v0.6.3).");
 
 // --- Constants ---
 const ANTHROPIC_MODEL = "claude-3-7-sonnet-20250219";
@@ -27,8 +27,9 @@ const CONTEXT_MENU_ID_CLEAR_CONTEXT = "TIPS_CLEAR_CONTEXT";
 const SESSION_STORAGE_PREFIX = "TIPS_SID_";
 const MAX_IMAGE_SIZE_BYTES = 3.5 * 1024 * 1024;
 const EXTENSION_VERSION = chrome.runtime.getManifest().version;
+const CAPTURE_SCROLL_DELAY_MS = 150;
 
-// --- Firebase Logging Configuration & Function (NEW) ---
+// --- Firebase Logging Configuration & Function ---
 let ENABLE_LOGGING = import.meta.env.VITE_ENABLE_LOGGING === 'true';
 const FIREBASE_DATABASE_URL = import.meta.env.VITE_FIREBASE_DATABASE_URL;
 
@@ -52,6 +53,7 @@ if (ENABLE_LOGGING && FIREBASE_DATABASE_URL) {
   console.log("[Background] Firebase logging disabled or configuration missing.");
 }
 
+// Logs an interaction event to Firebase if enabled.
 async function logToFirebase(logData: Omit<LogEntry, 'timestamp' | 'extensionVersion'>): Promise<void> {
   if (!ENABLE_LOGGING || !database) {
     return; // Logging disabled or Firebase not initialized
@@ -64,20 +66,21 @@ async function logToFirebase(logData: Omit<LogEntry, 'timestamp' | 'extensionVer
   };
 
   try {
-    const logRef = ref(database, 'interactions'); // Log to an 'interactions' node
-    const newLogRef = push(logRef); // Generate a unique ID
+    const logRef = ref(database, 'interactions');
+    const newLogRef = push(logRef);
     await set(newLogRef, entry);
-    // console.log(`[logToFirebase] Event logged: ${entry.eventType}`);
   } catch (error) {
     console.error('[logToFirebase] Error logging to Firebase:', error);
   }
 }
 
 // --- Context Management (using chrome.storage.session) ---
+// Generates the session storage key for a given tab's context.
 function getContextStorageKey(tabId: number): string {
   return `${SESSION_STORAGE_PREFIX}${tabId}`;
 }
 
+// Retrieves context items for a specific tab from session storage.
 async function getContextItems(tabId: number): Promise<ContextItem[]> {
   const key = getContextStorageKey(tabId);
   try {
@@ -92,20 +95,15 @@ async function getContextItems(tabId: number): Promise<ContextItem[]> {
   }
 }
 
+// Adds a context item for a specific tab, pruning old items if necessary.
 async function addContextItem(
   tabId: number,
   item: ContextItem
 ): Promise<boolean> {
   const key = getContextStorageKey(tabId);
-//   console.log(
-//     `[addContextItem] Adding item to tab ${tabId}. Type: ${item.type}`
-//   );
   try {
     let currentItems = await getContextItems(tabId);
     if (!Array.isArray(currentItems)) {
-    //   console.warn(
-    //     `[addContextItem] Existing data for key ${key} is not an array, resetting.`
-    //   );
       currentItems = [];
     }
     currentItems.push(item);
@@ -116,37 +114,32 @@ async function addContextItem(
     }
 
     await chrome.storage.session.set({ [key]: currentItems });
-    // console.log(
-    //   `[addContextItem] Context updated for tab ${tabId}. New count: ${currentItems.length}`
-    // );
-    // --- Log successful context addition (NEW) ---
+
+    // Log successful context addition
     logToFirebase({ eventType: 'addContext', tabId, contextItem: item });
+    sendMessageToTab(tabId, { type: "CONTEXT_ADDED_NOTIFICATION", timestamp: Date.now() }).catch(() => {});
     return true;
   } catch (error) {
     console.error(
       `[addContextItem] Error adding context for tab ${tabId}:`,
       error
     );
-    // --- Log failed context addition (NEW) ---
+    // Log failed context addition
     logToFirebase({ eventType: 'addContextFail', tabId, contextItem: item, error: error instanceof Error ? error.message : String(error) });
     return false;
   }
 }
 
+// Removes tab-specific context when a tab is closed.
 chrome.tabs.onRemoved.addListener((tabId) => {
   const key = getContextStorageKey(tabId);
   chrome.storage.session.remove(key);
-  // --- Clean up scroll position on tab removal --- REMOVED
-  // if (scrollPositions[tabId]) {
-  //   delete scrollPositions[tabId];
-  //   // console.log(`[Background] Cleaned up saved scroll for closed tab ${tabId}`);
-  // }
-  // ---
 });
 
 // --- Anthropic API Interaction ---
 let systemPrompt: string | null = null;
 
+// Loads the system prompt text from the packaged file.
 async function loadSystemPrompt(): Promise<string | null> {
   if (systemPrompt) {
     return systemPrompt;
@@ -160,7 +153,6 @@ async function loadSystemPrompt(): Promise<string | null> {
       );
     }
     systemPrompt = await promptResponse.text();
-    // console.log("[loadSystemPrompt] System prompt loaded and cached.");
     return systemPrompt;
   } catch (promptError) {
     console.error(
@@ -174,17 +166,15 @@ async function loadSystemPrompt(): Promise<string | null> {
 
 // --- Messaging Helpers ---
 
-/** Safely sends a message to a specific tab, handling potential errors. */
+// Safely sends a message to a specific tab, handling potential errors.
 async function sendMessageToTab(tabId: number, message: any): Promise<boolean> {
   try {
     await chrome.tabs.sendMessage(tabId, message);
-    // console.log(`[sendMessageToTab] Successfully sent ${message.type} to tab ${tabId}`);
     return true;
   } catch (error) {
     // Check if the tab still exists before logging an error
     const tabExists = await chrome.tabs.get(tabId).catch(() => null);
     if (!tabExists) {
-      // console.warn(`[sendMessageToTab] Tab ${tabId} closed before message could be sent.`);
     } else {
       console.error(`[sendMessageToTab] Failed to send ${message.type} to tab ${tabId}:`, error);
     }
@@ -192,18 +182,19 @@ async function sendMessageToTab(tabId: number, message: any): Promise<boolean> {
   }
 }
 
-/** Notifies the content script and popup that interpretation is ready. */
-async function notifyInterpretationReady(tabId: number, interpretationData: InterpretationData): Promise<void> {
+// Notifies the content script and popup that interpretation is ready.
+async function notifyInterpretationReady(tabId: number, interpretationData: InterpretationData, triggerSource: 'iconClick' | 'contextMenu'): Promise<void> {
   const message: InterpretationReadyMessage = {
     type: "INTERPRETATION_READY",
     interpretation: interpretationData,
+    triggerSource: triggerSource
   };
   await sendMessageToTab(tabId, message);
-  // Also notify popup if open
+
   chrome.runtime.sendMessage({ type: "INTERPRETATION_READY" }).catch(() => {});
 }
 
-/** Notifies the content script that interpretation failed. */
+// Notifies the content script that interpretation failed.
 async function notifyInterpretationFailed(tabId: number, errorMessage: string): Promise<void> {
   console.error(`[notifyInterpretationFailed] Tab ${tabId}: ${errorMessage}`);
   const message: InterpretationFailedMessage = {
@@ -213,68 +204,176 @@ async function notifyInterpretationFailed(tabId: number, errorMessage: string): 
   await sendMessageToTab(tabId, message);
 }
 
-// --- End Messaging Helpers ---
 
-// Using chrome.tabs.captureVisibleTab with scrolling to capture the full page
-async function getFullPageScreenshot(tabId: number): Promise<string | null> {
+// --- Capture the page screenshot (stitching method) ---
+/**
+ * Captures a screenshot of the relevant portion of the page by stitching together 
+ * multiple viewport captures, scrolling from the top down to the original scroll position.
+ * @param tabId The ID of the tab to capture.
+ * @returns A data URL of the stitched PNG image, or null if capture failed.
+ */
+async function getStitchedPageScreenshot(tabId: number): Promise<string | null> {
+  let originalScroll: { x: number; y: number } | null = null;
+  let capturedDataUrls: string[] = [];
+  let viewHeight: number = 0;
+  let totalHeight: number = 0;
+  let viewWidth: number = 0;
+
   try {
-    // console.log(`[getFullPageScreenshot] Capturing full page for tab ${tabId}`);
-    
-    // Need to get tab info to get window ID
-    const tab = await chrome.tabs.get(tabId);
-    const windowId = tab.windowId;
-    
-    // --- Restore original scroll handling within this function ---
-    // First, save current scroll position so we can restore it later
-    const [scrollResult] = await chrome.scripting.executeScript({
+    // Get initial scroll position and page dimensions
+    const [pageInfoResult] = await chrome.scripting.executeScript({
       target: { tabId: tabId },
       func: () => {
-        return { 
-          scrollX: window.scrollX, 
+        return {
+          scrollX: window.scrollX,
           scrollY: window.scrollY,
+          viewHeight: window.innerHeight,
+          totalHeight: document.body.scrollHeight,
+          viewWidth: window.innerWidth,
         };
-      }
+      },
     });
-    const originalScroll = scrollResult?.result;
 
-    // Scroll to top for capture (potentially needed?)
+    if (!pageInfoResult?.result) {
+      throw new Error("Failed to get page dimensions and scroll info.");
+    }
+    originalScroll = { x: pageInfoResult.result.scrollX, y: pageInfoResult.result.scrollY };
+    viewHeight = pageInfoResult.result.viewHeight;
+    totalHeight = pageInfoResult.result.totalHeight;
+    viewWidth = pageInfoResult.result.viewWidth;
+
+    if (viewHeight <= 0 || totalHeight <= 0 || viewWidth <= 0) {
+      throw new Error(`Invalid page dimensions: vH=${viewHeight}, tH=${totalHeight}, vW=${viewWidth}`);
+    }
+
+    // Determine the maximum height to capture (up to original scroll position + one viewport)
+    const captureUntilY = Math.min(originalScroll.y + viewHeight, totalHeight);
+    let currentScrollY = 0;
+
+    // Scroll to top
     await chrome.scripting.executeScript({
       target: { tabId: tabId },
-      func: () => { window.scrollTo(0, 0); }
+      func: () => window.scrollTo(0, 0),
     });
-    await new Promise(resolve => setTimeout(resolve, 100)); // Short delay for scroll
-    // ---
-    
-    // Capture the visible part of the page
-    const dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
-      format: "png"
+
+    await new Promise(resolve => setTimeout(resolve, CAPTURE_SCROLL_DELAY_MS));
+
+    // Iterative capture
+    while (currentScrollY < captureUntilY) {
+      const tab = await chrome.tabs.get(tabId);
+      if (!tab || !tab.windowId) {
+          throw new Error(`Could not find tab or windowId for tabId: ${tabId}`);
+      }
+      const windowId = tab.windowId;
+
+      const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: "png" });
+      if (!dataUrl) {
+        console.warn(`[getStitchedScreenshot] captureVisibleTab returned null at scrollY ${currentScrollY}. Skipping.`);
+        // Attempt to continue, might result in gaps
+      } else {
+          capturedDataUrls.push(dataUrl);
+      }
+
+      currentScrollY += viewHeight;
+
+      // Scroll down for the next capture, but don't exceed total height
+      const nextScroll = Math.min(currentScrollY, totalHeight - viewHeight); 
+      if (nextScroll > (currentScrollY - viewHeight)) {
+           await chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                func: (y) => window.scrollTo(0, y),
+                args: [nextScroll]
+           });
+           await new Promise(resolve => setTimeout(resolve, CAPTURE_SCROLL_DELAY_MS)); // Wait
+      } else {
+          break;
+      }
+
+       // Safety break for very tall pages / potential loops - adjust limit as needed
+       if (capturedDataUrls.length > 30) {
+         console.warn("[getStitchedScreenshot] Exceeded maximum captures (30). Stopping capture.");
+         logToFirebase({ eventType: 'screenshotFail', tabId, error: 'Stitch method: Exceeded 30 captures' });
+         break;
+       }
+    }
+
+    if (capturedDataUrls.length === 0) {
+        throw new Error("No screenshots were captured.");
+    }
+    if (capturedDataUrls.length === 1) {
+        return capturedDataUrls[0];
+    }
+
+
+    // Stitching the images 
+    const canvas = new OffscreenCanvas(viewWidth, Math.min(captureUntilY, totalHeight));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Failed to get OffscreenCanvas context for stitching");
+
+    let currentY = 0;
+    for (let i = 0; i < capturedDataUrls.length; i++) {
+      const dataUrl = capturedDataUrls[i];
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const imageBitmap = await createImageBitmap(blob);
+
+        // Calculate draw height: normally viewport height, but could be less for the last segment
+        const remainingCanvasHeight = canvas.height - currentY;
+        const drawHeight = Math.min(imageBitmap.height, viewHeight, remainingCanvasHeight);
+
+        if (drawHeight <= 0) continue;
+
+        // Draw the segment
+        ctx.drawImage(imageBitmap, 0, 0, imageBitmap.width, drawHeight, 0, currentY, viewWidth, drawHeight);
+
+        currentY += drawHeight;
+        imageBitmap.close();
+
+        if (currentY >= canvas.height) break; 
+
+      } catch (imgError) {
+          console.error(`[getStitchedScreenshot] Error processing image segment ${i}:`, imgError);
+      }
+    }
+
+    const stitchedBlob = await canvas.convertToBlob({ type: "image/png" });
+    const stitchedDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(stitchedBlob);
     });
-    
-    // --- Restore original scroll handling within this function ---
-    // Reset scroll position
+
+    return stitchedDataUrl;
+
+  } catch (error) {
+    console.error(`[getStitchedScreenshot] Error capturing stitched screenshot:`, error);
+    logToFirebase({ eventType: 'screenshotFail', tabId, error: `Stitch method: ${error instanceof Error ? error.message : String(error)}` });
+    return null; 
+  } finally {
+    // Restore original scroll position
     if (originalScroll) {
+      try {
         await chrome.scripting.executeScript({
           target: { tabId: tabId },
-          func: (originalScrollX, originalScrollY) => {
-            window.scrollTo(originalScrollX, originalScrollY);
-          },
-          args: [originalScroll.scrollX, originalScroll.scrollY]
+          func: (x, y) => window.scrollTo(x, y),
+          args: [originalScroll.x, originalScroll.y],
         });
+      } catch (restoreError) {
+        console.warn(`[getStitchedScreenshot] Failed to restore scroll position:`, restoreError);
+      }
     }
-    // ---
-
-    // console.log(`[getFullPageScreenshot] Screenshot captured successfully`);
-    return dataUrl;
-  } catch (error) {
-    console.error(`[getFullPageScreenshot] Error capturing screenshot:`, error);
-    // --- Log screenshot failure (NEW) ---
-    logToFirebase({ eventType: 'screenshotFail', tabId, error: error instanceof Error ? error.message : String(error) });
-    // ---
-    return null;
   }
 }
 
-// Optimized image resizing function - maintain PNG format for Anthropic
+// --- Image resizing function for Anthropic ---
+/**
+ * Resizes an image data URL if it exceeds the specified size limit.
+ * Uses OffscreenCanvas for resizing.
+ * @param dataUrl The original image data URL.
+ * @param maxSizeBytes The maximum allowed size in bytes.
+ * @returns A data URL of the resized image (or the original if already small enough or on error).
+ */
 async function resizeImageToFitSizeLimit(
   dataUrl: string,
   maxSizeBytes: number = MAX_IMAGE_SIZE_BYTES
@@ -285,11 +384,9 @@ async function resizeImageToFitSizeLimit(
     const mimeType = dataUrl.split(",")[0].split(":")[1].split(";")[0];
     const estimatedSize = base64Data.length * 0.75; // Bytes
     
-    // console.log(`[resizeImage] Original image size: ~${(estimatedSize/1024/1024).toFixed(2)}MB`);
     
     // Skip processing if already under size limit
     if (estimatedSize <= maxSizeBytes) {
-    //   console.log(`[resizeImage] Image already under size limit, no resize needed`);
       return dataUrl;
     }
     
@@ -300,7 +397,6 @@ async function resizeImageToFitSizeLimit(
     const origWidth = imageBitmap.width;
     const origHeight = imageBitmap.height;
     
-    // console.log(`[resizeImage] Original dimensions: ${origWidth}x${origHeight}`);
     
     // Calculate scale based on target size (reduce dimensions to fit size limit)
     // Target a bit less than the limit to account for encoding overhead
@@ -311,9 +407,7 @@ async function resizeImageToFitSizeLimit(
     const scaleFactor = Math.min(scale, 1.0);
     const newWidth = Math.max(1, Math.floor(origWidth * scaleFactor));
     const newHeight = Math.max(1, Math.floor(origHeight * scaleFactor));
-    
-    // console.log(`[resizeImage] Resizing to ${newWidth}x${newHeight} (scale: ${scaleFactor.toFixed(3)})`);
-    
+        
     // Draw to canvas
     const canvas = new OffscreenCanvas(newWidth, newHeight);
     const ctx = canvas.getContext("2d");
@@ -321,7 +415,7 @@ async function resizeImageToFitSizeLimit(
     
     ctx.drawImage(imageBitmap, 0, 0, newWidth, newHeight);
     const resizedBlob = await canvas.convertToBlob({ 
-      type: "image/png"  // Maintain PNG format for Anthropic
+      type: "image/png" 
     });
     
     // Convert blob to data URL
@@ -330,7 +424,6 @@ async function resizeImageToFitSizeLimit(
       reader.onloadend = () => {
         const result = reader.result as string;
         const resultSize = (result.split(",")[1].length * 0.75) / 1024 / 1024;
-        // console.log(`[resizeImage] Final image size: ~${resultSize.toFixed(2)}MB`);
         resolve(result);
       };
       reader.readAsDataURL(resizedBlob);
@@ -342,8 +435,15 @@ async function resizeImageToFitSizeLimit(
 }
 
 // --- API Interaction Helpers ---
-
-/** Prepares the content payload for the Anthropic API call. */
+/**
+ * Prepares the content payload for the Anthropic API call,
+ * combining screenshot, target info, and manual context.
+ * @param targetInfo Information about the user's target (selection, image, etc.).
+ * @param contextItems Manually added context items.
+ * @param screenshotDataUrl Resized screenshot data URL (or null).
+ * @param captureErrorOccurred Whether an error occurred during screenshot capture.
+ * @returns The content array for the Anthropic API messages.
+ */
 function prepareApiPayload(
   targetInfo: TargetInfo,
   contextItems: ContextItem[],
@@ -364,7 +464,7 @@ function prepareApiPayload(
     });
     userContent.push({
       type: "text",
-      text: "Context: The above screenshot shows the page where the target content was found.",
+      text: "Context: The above image is a rendering of the page content down to where the user had scrolled.",
     });
   } else if (captureErrorOccurred) {
     userContent.push({
@@ -432,7 +532,13 @@ function prepareApiPayload(
   return userContent;
 }
 
-/** Calls the Anthropic API with the prepared payload. */
+/**
+ * Calls the Anthropic API with the prepared system prompt and user content.
+ * @param apiKey The Anthropic API key.
+ * @param systemPrompt The system prompt text.
+ * @param userContent The prepared user content payload.
+ * @returns The parsed API response message.
+ */
 async function callAnthropicApi(
   apiKey: string,
   systemPrompt: string,
@@ -467,17 +573,16 @@ async function callAnthropicApi(
     throw new Error("Invalid response format received from API.");
   }
 
-  // Log token usage
-  if (response.usage) {
-    // console.log(
-    //   `[callAnthropicApi] Anthropic Usage: Input ${response.usage.input_tokens}, Output ${response.usage.output_tokens} tokens.`
-    // );
-  }
-
   return response; 
 }
 
-/** Parses and validates the JSON data from the Anthropic API response. */
+/**
+ * Parses the JSON data from the Anthropic API response text and validates its structure.
+ * Attempts to extract JSON even if surrounded by other text.
+ * @param responseText The raw text content from the API response.
+ * @returns The validated InterpretationData object.
+ * @throws Error if parsing or validation fails.
+ */
 function parseAndValidateApiResponse(responseText: string): InterpretationData {
   try {
     let jsonData = responseText.trim();
@@ -486,9 +591,6 @@ function parseAndValidateApiResponse(responseText: string): InterpretationData {
       const jsonMatch = jsonData.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         jsonData = jsonMatch[0];
-        // console.log(
-        //   "[parseAndValidateApiResponse] Extracted JSON block from response."
-        // );
       } else {
         throw new Error(
           "Response does not contain a recognizable JSON block."
@@ -504,9 +606,6 @@ function parseAndValidateApiResponse(responseText: string): InterpretationData {
       typeof parsedJson.tone === "string" &&
       typeof parsedJson.contextSummary === "string"
     ) {
-      // console.log(
-      //   "[parseAndValidateApiResponse] Successfully parsed and validated interpretation data."
-      // );
       return parsedJson as InterpretationData;
     } else {
       throw new Error(
@@ -531,28 +630,22 @@ function parseAndValidateApiResponse(responseText: string): InterpretationData {
 
 // --- End API Interaction Helpers ---
 
-/** Triggers the interpretation process for a given target and tab. */
+/**
+ * Orchestrates the entire interpretation process:
+ * loading config, capturing screenshot, fetching context, calling API, 
+ * handling results, and notifying the content script.
+ * @param targetInfo Information about the user's target.
+ * @param tabId The ID of the relevant tab.
+ * @param triggerSource Indicates whether initiated by icon click or context menu.
+ */
 async function triggerInterpretation(
   targetInfo: TargetInfo,
   tabId: number,
   triggerSource: 'iconClick' | 'contextMenu'
 ): Promise<void> {
-  // console.log(
-  //   `[triggerInterpretation] Received request for tab ${tabId}. Target type: ${targetInfo.type}, Trigger: ${triggerSource}`
-  // );
-
-  // --- Save scroll position if provided --- REMOVED
-  // if (targetInfo.scrollX !== undefined && targetInfo.scrollY !== undefined) {
-  //   scrollPositions[tabId] = { scrollX: targetInfo.scrollX, scrollY: targetInfo.scrollY };
-  //   // console.log(`[Background] Saved scroll for tab ${tabId}:`, scrollPositions[tabId]);
-  // } else if (scrollPositions[tabId]) {
-  //     // Clean up any stale scroll position if the new target doesn't have one
-  //     delete scrollPositions[tabId];
-  // }
-  // ---
 
   try {
-    // --- Initial Checks ---
+    // Initial Checks
     const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
     if (!apiKey) {
       throw new Error("Anthropic API Key not configured.");
@@ -563,40 +656,32 @@ async function triggerInterpretation(
       throw new Error("System prompt failed to load.");
     }
 
-    // --- Capture Screenshot ---
-    // console.log(`[triggerInterpretation] Capturing screenshot for tab ${tabId}...`);
+    // Capture Screenshot
     let screenshotDataUrl: string | null = null;
     let captureErrorOccurred = false;
     try {
-      // Request screenshot from debugger API
-      const rawDataUrl = await getFullPageScreenshot(tabId);
+      // Use the new stitching function
+      const rawDataUrl = await getStitchedPageScreenshot(tabId);
 
       if (rawDataUrl) {
-        // Further processing to ensure API compatibility
-        // console.log(`[triggerInterpretation] Processing screenshot for API transmission...`);
         screenshotDataUrl = await resizeImageToFitSizeLimit(rawDataUrl);
       } else {
         throw new Error("Screenshot capture returned no data");
       }
     } catch (captureError) {
-    //   console.warn(
-    //     `[triggerInterpretation] Failed to capture screenshot:`,
-    //     captureError
-    //   );
-      // --- Log screenshot failure (NEW) ---
       logToFirebase({ 
           eventType: 'screenshotFail', 
           tabId, 
           targetInfo, 
           error: captureError instanceof Error ? captureError.message : String(captureError) 
       });
-      captureErrorOccurred = true; // Mark error, but continue
+      captureErrorOccurred = true;
     }
 
     // --- Fetch Manual Context ---
     const contextItems = await getContextItems(tabId);
 
-    // --- Log interpretation start (NEW) ---
+    // --- Log interpretation start ---
     logToFirebase({ 
         eventType: 'interpretStart', 
         tabId, 
@@ -625,15 +710,11 @@ async function triggerInterpretation(
         originalTarget: targetInfo,
       };
       await chrome.storage.local.set({ lastInterpretation: dataToStore });
-    //   console.log(
-    //     "[triggerInterpretation] Interpretation result stored successfully."
-    //   );
 
-      // --- Use new helper function for notification ---
-      await notifyInterpretationReady(tabId, interpretationData);
-      // --- End Use new helper ---
+      // Notify Success
+      await notifyInterpretationReady(tabId, interpretationData, triggerSource);
 
-      // --- Log successful interpretation (NEW) ---
+      // Log successful interpretation
       logToFirebase({
           eventType: 'interpretSuccess',
           tabId,
@@ -645,17 +726,9 @@ async function triggerInterpretation(
       });
     }
   } catch (error: any) {
-    console.error(
-      `[triggerInterpretation] Interpretation failed for tab ${tabId}:`,
-      error
-    );
-    // --- Use new helper function for failure notification ---
-    await notifyInterpretationFailed(
-      tabId,
-      error?.message || "An unknown interpretation error occurred."
-    );
-    // ---
-    // --- Log failed interpretation (NEW) ---
+    console.error("[triggerInterpretation] Interpretation failed:", error);
+    const errorMessage = error?.message || "An unknown error occurred during interpretation.";
+    await notifyInterpretationFailed(tabId, errorMessage);
     logToFirebase({
         eventType: 'interpretFail',
         tabId,
@@ -664,21 +737,18 @@ async function triggerInterpretation(
         error: error?.message || "An unknown interpretation error occurred.",
         trigger: triggerSource
     });
-  } finally {
-    // console.log(
-    //   `[triggerInterpretation] Finished processing for tab ${tabId}.`
-    // );
   }
 }
 
 // --- Context Menu Setup and Handling ---
+// Sets up the extension's context menus.
 function setupContextMenus() {
   chrome.contextMenus.removeAll(() => {
     if (chrome.runtime.lastError) {
-    //   console.warn(
-    //     "[setupContextMenus] Error removing existing menus (may be expected on reload):",
-    //     chrome.runtime.lastError.message
-    //   );
+      console.warn(
+        "[setupContextMenus] Error removing existing menus (may be expected on reload):",
+        chrome.runtime.lastError.message
+      );
     }
 
     // Create interpretation menu item
@@ -702,7 +772,6 @@ function setupContextMenus() {
       contexts: ["all"],
     });
 
-    // console.log("[setupContextMenus] Context menus created.");
   });
 }
 
@@ -741,15 +810,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     return;
   }
   const tabId = tab.id;
-//   console.log(
-//     `[contextMenus.onClicked] Item '${info.menuItemId}' clicked in tab ${tabId}.`
-//   );
 
   // Use tab info if pageUrl isn't directly available in `info` (e.g., for 'page' context if added)
   const pageUrl = info.pageUrl || tab.url || "Unknown URL";
   const pageTitle = tab.title || "Unknown Title";
 
-  // --- Handle "Add to Context" ---
+  // Handle "Add to Context"
   if (info.menuItemId === CONTEXT_MENU_ID_ADD_CONTEXT) {
     let contextItem: ContextItem | null = null;
     const timestamp = Date.now();
@@ -782,18 +848,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     if (contextItem) {
       const success = await addContextItem(tabId, contextItem);
-      if (success) {
-        // showActionBadge(tabId, "✨");
-      }
-    } else {
-      // console.warn(
-      //   "[contextMenus.onClicked] 'Add to Context' clicked, but no relevant data found in info:",
-      //   info
-      // );
     }
   }
 
-  // --- Handle "Interpret" ---
+  // Handle "Interpret"
   else if (info.menuItemId === CONTEXT_MENU_ID_INTERPRET) {
     let targetInfo: TargetInfo | null = null;
 
@@ -807,12 +865,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     } else if (info.mediaType === "image" && info.srcUrl) {
       targetInfo = { type: "image", srcUrl: info.srcUrl, pageUrl, pageTitle };
     }
-    // Note: 'page' or 'link' interpretation isn't directly supported by this menu item's contexts
 
     if (targetInfo) {
       // Send a message to create the icon immediately
       chrome.tabs
-        .sendMessage(tabId, { 
+        .sendMessage(tabId, {
           type: "CONTEXT_MENU_INTERPRET_STARTED",
           timestamp: Date.now()
         })
@@ -823,21 +880,20 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           )
         );
 
-        // --- Use new helper function for loading message ---
-        const loadingMessage: InterpretationNowLoadingMessage = { type: "INTERPRETATION_NOW_LOADING" };
-        await sendMessageToTab(tabId, loadingMessage);
-        // ---
+      // Send loading message
+      const loadingMessage: InterpretationNowLoadingMessage = { type: "INTERPRETATION_NOW_LOADING" };
+      await sendMessageToTab(tabId, loadingMessage);
 
       triggerInterpretation(targetInfo, tabId, 'contextMenu');
     } else {
-      // console.error(
-      //   "[contextMenus.onClicked] 'Interpret' clicked, but failed to identify target data from info:",
-      //   info
-      // );
+      console.error(
+        "[contextMenus.onClicked] 'Interpret' clicked, but failed to identify target data from info:",
+        info
+      );
     }
   }
 
-  // --- Handle "Clear Context" ---
+  // Handle "Clear Context"
   else if (info.menuItemId === CONTEXT_MENU_ID_CLEAR_CONTEXT) {
     const key = getContextStorageKey(tabId);
     chrome.storage.session.remove(key, () => {
@@ -847,18 +903,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           chrome.runtime.lastError.message
         );
       } else {
-        // console.log(
-        //   `[contextMenus.onClicked] Cleared context for tab ${tabId}.`
-        // );
-        // showActionBadge(tabId, "🗑️");
-        // --- Log context clear (NEW) ---
         logToFirebase({ eventType: 'clearContext', tabId });
+        sendMessageToTab(tabId, { type: "CONTEXT_CLEARED_NOTIFICATION", timestamp: Date.now() }).catch(() => {});
       }
     });
   }
 });
 
-// --- Message Listener (Handles INTERPRET_TARGET from content script icon click) ---
+// Message Listener (Handles INTERPRET_TARGET from content script icon click)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "INTERPRET_TARGET") {
     const tabId = sender.tab?.id;
@@ -866,7 +918,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ error: "Invalid tab context" });
       return false; // Not using async response
     }
-    
+
     // Send loading message confirmation (no targetId needed)
     const loadingMessage: InterpretationNowLoadingMessage = { type: "INTERPRETATION_NOW_LOADING" };
     sendMessageToTab(tabId, loadingMessage)
@@ -880,10 +932,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
     } else {
          console.error("[onMessage INTERPRET_TARGET] Invalid or missing target data in message.");
-         // Send failure back immediately if target data is bad
-         // --- Use new helper function for failure notification ---
          notifyInterpretationFailed(tabId, "Invalid target data received.");
-         // ---
     }
 
     // Important: Return false to indicate we won't use sendResponse later
@@ -891,32 +940,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  // Handle context menu interpretation request (EXISTING)
-  if (message.type === "CONTEXT_MENU_INTERPRET_STARTED") {
-      // This path might be redundant if context menu now sends INTERPRETATION_NOW_LOADING
-      // Keeping for now in case it's used elsewhere or needed for UI setup
-      console.log("[onMessage] Received CONTEXT_MENU_INTERPRET_STARTED (may be legacy)");
-      // Let content script handle UI based on INTERPRETATION_NOW_LOADING / INTERPRETATION_READY / FAILED
-      return false;
-  }
-
-  // Handle interpretation results (EXISTING)
-  if (message.type === "INTERPRETATION_READY") {
-      // Background script doesn't typically receive this back, sent TO content script
-      console.warn("[onMessage] Received INTERPRETATION_READY unexpectedly.");
-      return false;
-  }
-
-  // Handle interpretation failures (EXISTING)
-  if (message.type === "INTERPRETATION_FAILED") {
-       // Background script doesn't typically receive this back, sent TO content script
-       console.warn("[onMessage] Received INTERPRETATION_FAILED unexpectedly.");
-      return false;
-  }
-
   // Default for unhandled types
-  console.log("[onMessage] Message type not handled:", message.type);
+  if (message.type !== "INTERPRET_TARGET") {
+    console.log("[onMessage] Message type not handled:", message.type);
+  }
   return false; // Indicate synchronous handling for unhandled types
 });
 
-console.log("[Background] Script initialization complete (v0.6.1).");
+console.log("[Background] Script initialization complete (v0.6.3).");
