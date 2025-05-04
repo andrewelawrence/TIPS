@@ -65,6 +65,7 @@ export interface InterpretationNowLoadingMessage {
 export interface InterpretationReadyMessage {
   type: "INTERPRETATION_READY";
   interpretation: InterpretationData;
+  triggerSource?: 'iconClick' | 'contextMenu';
 }
 
 // --- Message sent from background to content if the interpretation fails. ---
