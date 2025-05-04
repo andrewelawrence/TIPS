@@ -66,7 +66,7 @@ you influenced your interpretation:
                         // any uncertainty should be heavily penalized.
   "tone": string,   // Single word describing the dominant tone (e.g., Humorous,
                     // Sarcastic, Angry, Helpful, Neutral).
-  "contextSummary": string  // Brief explanation (1-2 sentences) of *how* the 
+  "contextSummary": string  // Concise explanation (1-2 sentences) of *how* the 
                             // screenshot AND the manual context items (if at 
                             // all present) influenced the interpretation. Do 
                             // NOT mention the context type - e.g. "screenshot".
