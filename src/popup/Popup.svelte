@@ -1,24 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-
-  interface TargetInfo {
-    type: "selection" | "image" | "link" | "page";
-    selectionText?: string;
-    srcUrl?: string;
-    pageUrl?: string;
-  }
-
-  interface InterpretationData {
-    interpretation: string;
-    confidence: number;
-    tone: string;
-    contextSummary: string;
-  }
-
-  interface StoredData {
-    interpretation: InterpretationData;
-    originalTarget: TargetInfo;
-  }
+  import type { TargetInfo, InterpretationData, StoredData } from "../types";
 
   let isFirstVisit = true;
   let isLoading = true;
@@ -36,23 +18,17 @@
   }
 
   function handleImageError() {
-    console.warn("[Popup] Image failed to load:", originalTarget?.srcUrl);
     imageLoadError = true;
   }
 
   function handleAnalyzeContext() {
-    console.log("[Popup] Analyze Context button clicked.");
     showContextSummary = !showContextSummary;
   }
 
   async function loadInterpretationData() {
     if (!isMounted) {
-      console.log(
-        "[Popup] loadInterpretationData called but component not mounted. Aborting."
-      );
       return;
     }
-    console.log("[Popup] Attempting to load interpretation data...");
     isLoading = true;
     errorLoading = null;
     imageLoadError = false;
@@ -60,11 +36,9 @@
 
     try {
       const result = await chrome.storage.local.get("lastInterpretation");
-      console.log("[Popup] Raw data from storage:", result);
 
       if (result.lastInterpretation) {
         const storedData = result.lastInterpretation as StoredData;
-        console.log("[Popup] Parsed storedData:", storedData);
 
         if (
           storedData &&
@@ -78,29 +52,18 @@
         ) {
           interpretationData = storedData.interpretation;
           originalTarget = storedData.originalTarget;
-          console.log(
-            "[Popup] Successfully loaded interpretation:",
-            interpretationData
-          );
-          console.log("[Popup] Original target:", originalTarget);
           errorLoading = null;
         } else {
-          console.warn(
-            "[Popup] Stored data structure is invalid or incomplete:",
-            storedData
-          );
           errorLoading = "Data format invalid.";
           interpretationData = null;
           originalTarget = null;
         }
       } else {
-        console.log("[Popup] No interpretation data found in storage.");
         errorLoading = null;
         interpretationData = null;
         originalTarget = null;
       }
     } catch (e: any) {
-      console.error("[Popup] Error loading interpretation from storage:", e);
       errorLoading = `Storage access failed: ${e.message || "Unknown error"}`;
       interpretationData = null;
       originalTarget = null;
@@ -108,14 +71,6 @@
       if (isMounted) {
         isLoading = false;
       }
-      console.log(
-        "[Popup] Data loading finished. isLoading:",
-        isLoading,
-        "errorLoading:",
-        errorLoading,
-        "HasData:",
-        !!interpretationData
-      );
     }
   }
 
@@ -128,13 +83,11 @@
         chrome.storage.local.set({ hasVisitedBefore: true });
       }
     } catch (e) {
-      console.error("[Popup] Error checking first visit status:", e);
       isFirstVisit = false;
     }
   }
 
   onMount(() => {
-    console.log("[Popup] Component mounted.");
     isMounted = true;
 
     checkFirstVisit().then(() => {
@@ -143,7 +96,6 @@
   });
 
   onDestroy(() => {
-    console.log("[Popup] Component destroying.");
     isMounted = false;
   });
 </script>
