@@ -7,7 +7,6 @@
 **TIPS is a Chromium browser extension designed to enhance online communication by providing AI-powered interpretations of text and images.**
 
 It draws inspiration from the research concepts presented in the TwIPS messaging platform ([arXiv:2407.17760](https://arxiv.org/pdf/2407.17760)).
-See the project [design document](https://docs.google.com/document/d/1nshcoPpixGUOw4tU8csQm7JQtdqcUCGqiwjO3W1fTMw/edit?usp=sharing) for more information.
 
 ## Overview
 
